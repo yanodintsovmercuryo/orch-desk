@@ -150,16 +150,16 @@ button:disabled { opacity: .5; cursor: default; }
   </div>
 
   <section class="panel">
-    <div class="panel-head"><h2>Ждут твоего ответа</h2><span class="count" id="asks-count">0</span></div>
-    <div id="asks"></div>
+    <div class="panel-head"><h2>Ждут твоего ответа</h2><span class="count" id="asks-count">…</span></div>
+    <div id="asks"><div class="empty">Загружаю…</div></div>
   </section>
 
   <section class="panel">
-    <div class="panel-head"><h2>Задачи</h2><span class="count" id="tasks-count">0</span>
+    <div class="panel-head"><h2>Задачи</h2><span class="count" id="tasks-count">…</span>
       <span class="right"><button class="toggle" id="toggle-closed" type="button"></button></span></div>
     <table class="tasks">
       <thead><tr><th class="col-task">Задача</th><th>Этап</th><th>Статус</th><th class="col-links">Ссылки</th><th class="col-when">Обновлено</th></tr></thead>
-      <tbody id="tasks"></tbody>
+      <tbody id="tasks"><tr><td colspan="5" class="empty">Загружаю задачи…</td></tr></tbody>
     </table>
   </section>
 
@@ -340,6 +340,14 @@ function render() {
     || `<li class="note" style="display:block">Пока ничего.</li>`;
 }
 
+function safeRender() {
+  try {
+    render();
+  } catch (e) {
+    document.getElementById("sub").innerHTML = `<span class="error">ошибка отрисовки: ${esc(e.message)}</span>`;
+  }
+}
+
 const editing = () => document.activeElement?.tagName === "TEXTAREA";
 
 async function refresh() {
@@ -350,7 +358,7 @@ async function refresh() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || res.status);
     last = data;
-    if (editing()) pendingRender = true; else render();
+    if (editing()) pendingRender = true; else safeRender();
   } catch (e) {
     document.getElementById("sub").innerHTML = `<span class="error">нет связи с сервером: ${esc(e.message)}</span>`;
   } finally {
@@ -363,7 +371,7 @@ document.addEventListener("input", e => {
   if (f) drafts.set(f.dataset.key, e.target.value);
 });
 document.addEventListener("focusout", () => setTimeout(() => {
-  if (pendingRender && !editing()) { pendingRender = false; render(); }
+  if (pendingRender && !editing()) { pendingRender = false; safeRender(); }
 }, 0));
 document.addEventListener("click", e => {
   if (e.target.closest("a")) return;

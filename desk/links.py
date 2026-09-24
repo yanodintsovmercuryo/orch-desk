@@ -9,7 +9,9 @@ import time
 TTL = 300
 LINEAR_WORKSPACE = "mercuryo"
 _cache = {}
+_pending = set()
 _lock = threading.Lock()
+_slots = threading.Semaphore(6)
 
 
 def _run(args, timeout=15):
@@ -19,19 +21,26 @@ def _run(args, timeout=15):
     return res.stdout
 
 
+def _refresh(key, fn):
+    with _slots:
+        try:
+            value = fn()
+        except Exception as e:  # a CLI failure degrades to a bare link, never breaks the page
+            value = {"error": str(e)[:300]}
+    with _lock:
+        _cache[key] = (time.time(), value)
+        _pending.discard(key)
+
+
 def cached(key, fn):
-    now = time.time()
+    """Stale-while-revalidate: never waits on a CLI; a miss returns {} until the fetch lands."""
     with _lock:
         hit = _cache.get(key)
-        if hit and now - hit[0] < TTL:
-            return hit[1]
-    try:
-        value = fn()
-    except Exception as e:  # a CLI failure degrades to a bare link, never breaks the page
-        value = {"error": str(e)[:300]}
-    with _lock:
-        _cache[key] = (now, value)
-    return value
+        fresh = hit and time.time() - hit[0] < TTL
+        if not fresh and key not in _pending:
+            _pending.add(key)
+            threading.Thread(target=_refresh, args=(key, fn), daemon=True).start()
+        return dict(hit[1]) if hit else {}
 
 
 def linear(key):
