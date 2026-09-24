@@ -9,7 +9,7 @@ import threading
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from desk import deliver, view
+from desk import deliver, view, workspace
 
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("DESK_PORT", "8800"))
@@ -73,11 +73,19 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(403, {"error": "origin not allowed"})
         if not self.headers.get("Content-Type", "").startswith("application/json"):
             return self._send(415, {"error": "json only"})
-        if self.path != "/api/reply":
-            return self._send(404, {"error": "not found"})
         try:
             length = min(int(self.headers.get("Content-Length", "0")), 64 * 1024)
             body = json.loads(self.rfile.read(length) or b"{}")
+            if self.path in ("/api/workspace/refresh", "/api/workspace/up"):
+                stream = body.get("stream", "")
+                repo = view.stream_repo(stream) if stream.replace("-", "").isalnum() else ""
+                if not repo:
+                    return self._send(400, {"error": "unknown stream"})
+                if self.path.endswith("/up"):
+                    workspace.app_up(repo, stream)
+                return self._send(200, workspace.status(repo, force=self.path.endswith("/refresh")))
+            if self.path != "/api/reply":
+                return self._send(404, {"error": "not found"})
             session_id, stream, text = body.get("session_id", ""), body.get("stream", ""), body.get("text", "")
             orch = next((o for o in view.build_orchestrators() if o["session_id"] and o["session_id"] == session_id), None)
             if not orch:

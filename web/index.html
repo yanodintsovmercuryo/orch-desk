@@ -26,6 +26,7 @@
   --text-sm: 0.875rem;
   --text-base: 1rem;
   --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px; --space-6: 24px;
   --r: 9px;
   --r-sm: 7px;
@@ -37,39 +38,35 @@ body { font: 400 var(--text-base)/1.55 var(--font-sans); -webkit-font-smoothing:
 a { color: var(--text-primary); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
 a:hover { text-decoration-color: var(--text-primary); }
 code { font: 0.86em var(--font-mono); background: var(--surface-raised); border: 1px solid var(--border); padding: 0 5px; border-radius: 5px; }
-pre { font: var(--text-sm)/1.5 var(--font-mono); background: var(--surface-inset); border: 1px solid var(--border); padding: var(--space-3); border-radius: var(--r-sm); overflow-x: auto; }
+pre { font: var(--text-xs)/1.5 var(--font-mono); background: var(--surface-inset); border: 1px solid var(--border); padding: var(--space-3); border-radius: var(--r-sm); overflow-x: auto; white-space: pre-wrap; margin: 0; }
 pre code { background: none; border: 0; padding: 0; }
 
 .page { max-width: 1180px; margin: 0 auto; padding: 26px 30px 80px; }
 .page-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-6); }
 h1 { font-size: var(--text-xl); font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+h1.big { font-size: var(--text-2xl); line-height: 1.25; }
 .sub { color: var(--text-secondary); font-size: var(--text-sm); margin-top: var(--space-1); }
 .muted { color: var(--text-muted); }
+.back { display: inline-block; font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-4); text-decoration: none; }
+.back:hover { color: var(--text-primary); }
 .stats { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .stat { background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--r); padding: 6px 12px; font-size: var(--text-sm); color: var(--text-secondary); }
 .stat b { color: var(--text-primary); font-weight: 600; margin-right: 4px; }
 
 .panel { background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--r-lg); margin-bottom: var(--space-6); overflow: hidden; }
-.panel-head { display: flex; align-items: baseline; gap: var(--space-2); padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--border); }
+.panel-head { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--border); }
 .panel-head h2 { font-size: var(--text-base); font-weight: 600; margin: 0; }
 .panel-head .count { font-size: var(--text-xs); color: var(--text-secondary); background: var(--surface-raised); border: 1px solid var(--border); border-radius: 999px; padding: 0 8px; }
-.panel-head .right { margin-left: auto; }
+.panel-head .right { margin-left: auto; display: flex; gap: var(--space-2); align-items: center; }
+.panel-body { padding: var(--space-4) var(--space-5); }
 .empty { padding: var(--space-5); color: var(--text-muted); font-size: var(--text-sm); }
 
-.ask { padding: var(--space-4) var(--space-5); border-top: 1px solid var(--border); }
-.ask:first-child { border-top: 0; }
-.ask-top { display: flex; gap: var(--space-4); align-items: flex-start; }
-.ask-main { flex: 1; min-width: 0; }
-.ask-what { margin-top: 4px; color: var(--text-secondary); }
-.ask-body { margin-top: var(--space-4); display: grid; gap: var(--space-3); }
-.quote { background: var(--surface-inset); border: 1px solid var(--border); border-radius: var(--r); padding: var(--space-3) var(--space-4); font-size: 0.95rem; line-height: 1.6; }
-.quote > :first-child { margin-top: 0; } .quote > :last-child { margin-bottom: 0; }
-.quote p { margin: 0 0 var(--space-2); }
-.quote ul { margin: 0 0 var(--space-2); padding-left: 20px; }
-.quote table { border-collapse: collapse; font-size: var(--text-sm); margin: var(--space-2) 0; }
-.quote th, .quote td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
-.quote th { color: var(--text-secondary); font-weight: 500; }
-.quote-meta { font-size: var(--text-xs); color: var(--text-muted); margin-top: calc(-1 * var(--space-2)); }
+.list-row { display: flex; gap: var(--space-4); align-items: center; padding: 12px var(--space-5); border-top: 1px solid var(--border); text-decoration: none; color: inherit; }
+.list-row:first-child { border-top: 0; }
+.list-row:hover { background: var(--surface-hover); }
+.list-main { flex: 1; min-width: 0; }
+.list-ask { color: var(--text-secondary); font-size: var(--text-sm); margin-top: 2px; }
+.list-side { color: var(--text-muted); font-size: var(--text-sm); white-space: nowrap; }
 
 .id { font: 500 var(--text-xs) var(--font-mono); color: var(--text-muted); }
 .task-title { font-weight: 500; color: var(--text-primary); }
@@ -79,11 +76,9 @@ table.tasks { width: 100%; border-collapse: collapse; font-size: var(--text-sm);
 .tasks td { padding: 12px var(--space-5); border-bottom: 1px solid var(--border); vertical-align: top; }
 .tasks tr.row { cursor: pointer; }
 .tasks tr.row:hover td { background: var(--surface-hover); }
-.tasks tr.row.open td { background: var(--surface-raised); }
 .tasks tr:last-child td { border-bottom: 0; }
-.tasks .col-task { width: 42%; }
+.tasks .col-task { width: 46%; }
 .tasks .col-when { white-space: nowrap; color: var(--text-secondary); }
-.tasks tr.detail td { background: var(--surface-inset); padding: var(--space-4) var(--space-5) var(--space-5); }
 
 .stage { display: grid; gap: 6px; min-width: 170px; }
 .bar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
@@ -98,8 +93,33 @@ table.tasks { width: 100%; border-collapse: collapse; font-size: var(--text-sm);
 .badge.quiet { border-color: transparent; background: var(--surface-raised); }
 .links { display: flex; gap: var(--space-3); white-space: nowrap; }
 .links a { color: var(--text-secondary); }
+.head-meta { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-top: var(--space-3); font-size: var(--text-sm); }
 
-.milestones { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-2); margin-bottom: var(--space-4); }
+.question { font-size: 1.05rem; font-weight: 500; }
+.question li { margin: 2px 0; }
+.question ul { margin: 0; padding-left: 20px; }
+.msg-label { font-size: var(--text-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin: var(--space-4) 0 var(--space-2); }
+.quote { background: var(--surface-inset); border: 1px solid var(--border); border-radius: var(--r); padding: var(--space-4) var(--space-5); font-size: 0.95rem; line-height: 1.65; }
+.quote > :first-child { margin-top: 0; } .quote > :last-child { margin-bottom: 0; }
+.quote p { margin: 0 0 var(--space-3); }
+.quote ul { margin: 0 0 var(--space-3); padding-left: 20px; }
+.quote li { margin: 2px 0; }
+.quote table { border-collapse: collapse; font-size: var(--text-sm); margin: var(--space-2) 0 var(--space-3); }
+.quote th, .quote td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+.quote th { color: var(--text-secondary); font-weight: 500; }
+.quote-meta { font-size: var(--text-xs); color: var(--text-muted); margin-top: 6px; }
+.stack { display: grid; gap: var(--space-3); }
+
+.contour { display: grid; gap: var(--space-4); }
+.contour-links { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.contour-links a { display: inline-flex; flex-direction: column; min-width: 150px; padding: 10px 14px; border: 1px solid var(--border-strong); border-radius: var(--r); text-decoration: none; }
+.contour-links a:hover { background: var(--surface-hover); border-color: var(--text-muted); }
+.contour-links a span { font-size: var(--text-xs); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
+.kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px var(--space-4); font-size: var(--text-sm); }
+.kv dt { color: var(--text-muted); }
+.kv dd { margin: 0; color: var(--text-secondary); overflow-wrap: anywhere; }
+
+.milestones { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-2); }
 .ms { font-size: var(--text-xs); color: var(--text-muted); border-top: 2px solid var(--border-strong); padding-top: 6px; }
 .ms.done { color: var(--text-secondary); border-top-color: var(--text-primary); }
 .ms b { display: block; font-weight: 500; color: inherit; }
@@ -113,19 +133,18 @@ details > summary { cursor: pointer; font-size: var(--text-sm); color: var(--tex
 details > summary::-webkit-details-marker { display: none; }
 details > summary::before { content: "▸ "; }
 details[open] > summary::before { content: "▾ "; }
+details[open] > summary { margin-bottom: var(--space-3); }
 
-textarea { width: 100%; min-height: 88px; resize: vertical; font: var(--text-base)/1.5 var(--font-sans); color: var(--text-primary); background: var(--surface-inset); border: 1px solid var(--border-strong); border-radius: var(--r); padding: 10px 12px; }
+textarea { width: 100%; min-height: 96px; resize: vertical; font: var(--text-base)/1.5 var(--font-sans); color: var(--text-primary); background: var(--surface-inset); border: 1px solid var(--border-strong); border-radius: var(--r); padding: 10px 12px; }
 textarea:focus { outline: none; border-color: var(--text-secondary); box-shadow: 0 0 0 3px rgba(255, 255, 255, .08); }
 .row-actions { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
 button { font: 500 var(--text-sm) var(--font-sans); border-radius: var(--r); border: 1px solid var(--border-strong); background: transparent; color: var(--text-primary); padding: 7px 14px; cursor: pointer; white-space: nowrap; }
 button:hover { background: var(--surface-hover); }
 button.primary { background: var(--text-primary); color: var(--text-inverse); border-color: var(--text-primary); }
 button.primary:hover { background: #dcdcdc; }
-button:disabled { opacity: .5; cursor: default; }
+button:disabled { opacity: .45; cursor: default; }
 .receipt { font-size: var(--text-sm); color: var(--text-secondary); }
 .receipt.err { color: var(--danger); white-space: pre-wrap; }
-.status-bar { font-size: var(--text-sm); color: var(--text-secondary); padding: var(--space-4) var(--space-5); }
-.status-bar b { color: var(--text-primary); font-weight: 500; }
 .error { color: var(--danger); font-size: var(--text-sm); white-space: pre-wrap; }
 .toggle { background: none; border: 0; padding: 0; color: var(--text-secondary); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-strong); }
 .toggle:hover { background: none; color: var(--text-primary); }
@@ -135,49 +154,18 @@ button:disabled { opacity: .5; cursor: default; }
   .tasks .col-links, .tasks .col-when { display: none; }
   .milestones { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .log li { grid-template-columns: 1fr; gap: 2px; }
-  .ask-top { flex-direction: column; }
+  .kv { grid-template-columns: 1fr; }
 }
 </style>
 </head>
 <body>
-<main class="page">
-  <div class="page-head">
-    <div>
-      <h1>Задачи оркестратора</h1>
-      <div class="sub" id="sub">загрузка…</div>
-    </div>
-    <div class="stats" id="stats"></div>
-  </div>
-
-  <section class="panel">
-    <div class="panel-head"><h2>Ждут твоего ответа</h2><span class="count" id="asks-count">…</span></div>
-    <div id="asks"><div class="empty">Загружаю…</div></div>
-  </section>
-
-  <section class="panel">
-    <div class="panel-head"><h2>Задачи</h2><span class="count" id="tasks-count">…</span>
-      <span class="right"><button class="toggle" id="toggle-closed" type="button"></button></span></div>
-    <table class="tasks">
-      <thead><tr><th class="col-task">Задача</th><th>Этап</th><th>Статус</th><th class="col-links">Ссылки</th><th class="col-when">Обновлено</th></tr></thead>
-      <tbody id="tasks"><tr><td colspan="5" class="empty">Загружаю задачи…</td></tr></tbody>
-    </table>
-  </section>
-
-  <section class="panel">
-    <div class="panel-head"><h2>Оркестратор</h2></div>
-    <div id="orchs"></div>
-  </section>
-
-  <section class="panel">
-    <div class="panel-head"><h2>Отправленные ответы</h2></div>
-    <ul class="log" id="replies" style="padding: 4px 20px 12px"></ul>
-  </section>
-</main>
+<main class="page" id="app"><div class="empty">Загружаю…</div></main>
 <script>
 const STAGES = {"launched": "Запуск", "spec-drafted": "Спецификация", "plan-passed": "План", "gate-round": "Ревью",
   "pre-publish": "Публикация", "pre-merge": "Мерж", "closed": "Закрыта", "intent-moved": "Смена цели"};
-const drafts = new Map(), receipts = new Map(), openRows = new Set(), openAsks = new Set();
-let last = null, pendingRender = false, loading = false, showClosed = false;
+const drafts = new Map(), receipts = new Map(), openDetails = new Set();
+let last = null, lastKey = "", pendingRender = false, loading = false, showClosed = false, updatedAt = null;
+const busy = new Map();
 
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
 
@@ -192,7 +180,7 @@ function inline(s) {
 
 function md(text) {
   const out = [], lines = String(text || "").split("\n");
-  const special = /^(```|\s*\||\s*[-*] |#{1,4} )/;
+  const special = /^(```|\s*\||\s*[-*] |\s*\d+\. |#{1,4} )/;
   for (let i = 0; i < lines.length;) {
     const l = lines[i];
     if (l.startsWith("```")) {
@@ -209,10 +197,12 @@ function md(text) {
         rest.map(r => "<tr>" + cells(r).map(c => `<td>${inline(c)}</td>`).join("") + "</tr>").join("") + "</table>");
       continue;
     }
-    if (/^\s*[-*] /.test(l)) {
-      const items = [];
-      while (i < lines.length && /^\s*[-*] /.test(lines[i])) items.push(lines[i++].replace(/^\s*[-*] /, ""));
-      out.push("<ul>" + items.map(t => `<li>${inline(t)}</li>`).join("") + "</ul>"); continue;
+    const listRe = /^\s*([-*]|\d+\.) /;
+    if (listRe.test(l)) {
+      const ordered = /^\s*\d+\. /.test(l), items = [];
+      while (i < lines.length && listRe.test(lines[i])) items.push(lines[i++].replace(listRe, ""));
+      const tag = ordered ? "ol" : "ul";
+      out.push(`<${tag}>` + items.map(t => `<li>${inline(t)}</li>`).join("") + `</${tag}>`); continue;
     }
     if (/^#{1,4} /.test(l)) { out.push(`<p><b>${inline(l.replace(/^#+ /, ""))}</b></p>`); i++; continue; }
     if (!l.trim()) { i++; continue; }
@@ -225,7 +215,7 @@ function md(text) {
 
 function when(ts) {
   if (!ts) return "";
-  const d = new Date(ts);
+  const d = typeof ts === "number" ? new Date(ts * 1000) : new Date(ts);
   return isNaN(d) ? esc(ts) : d.toLocaleString("ru-RU", {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"});
 }
 
@@ -238,16 +228,21 @@ function ago(ts) {
   return h < 48 ? `${h} ч назад` : `${Math.round(h / 24)} дн назад`;
 }
 
-function title(s) {
-  const lin = s.links.linear || {};
-  return `<div class="id">${esc(s.id)}</div><div class="task-title">${esc(lin.title || s.header.branch || s.id)}</div>`;
+const route = () => {
+  const h = location.hash.replace(/^#\/?/, "");
+  const [kind, id] = h.split("/");
+  return {kind: kind || "home", id: decodeURIComponent(id || "")};
+};
+
+function titleOf(s) {
+  return (s.links.linear || {}).title || s.header.branch || s.id;
 }
 
-function linksOf(s) {
+function linksOf(s, full = true) {
   const lin = s.links.linear || {}, pr = s.links.pr || {}, out = [];
-  if (pr.url) out.push(`<a href="${esc(pr.url)}" target="_blank" rel="noopener">PR #${esc(pr.number)}</a>`);
-  if (lin.url) out.push(`<a href="${esc(lin.url)}" target="_blank" rel="noopener">Linear</a>`);
-  return `<div class="links">${out.join("")}</div>`;
+  if (pr.url) out.push(`<a href="${esc(pr.url)}" target="_blank" rel="noopener">PR #${esc(pr.number)}${full && pr.state ? " · " + esc(pr.state.toLowerCase()) : ""}</a>`);
+  if (lin.url) out.push(`<a href="${esc(lin.url)}" target="_blank" rel="noopener">Linear${full && lin.state ? " · " + esc(lin.state) : ""}</a>`);
+  return `<span class="links">${out.join("")}</span>`;
 }
 
 function stage(s) {
@@ -266,27 +261,17 @@ function statusBadge(s) {
   return `<span class="badge">В работе</span>`;
 }
 
-function detail(s) {
-  const reached = new Map(s.milestones.map(m => [m.checkpoint, m.ts]));
-  const ms = last.checkpoints.map(c => `<div class="ms ${reached.get(c) ? "done" : ""}"><b>${esc(STAGES[c] || c)}</b>${reached.get(c) ? esc(when(reached.get(c))) : "—"}</div>`).join("");
-  const rows = [...s.events].reverse().map(e => e.kind === "checkpoint"
-    ? `<li><span>${esc(when(e.ts))}</span><span class="cp">${esc(STAGES[e.checkpoint] || e.checkpoint)} · ${e.direction === "in" ? "от потока" : "ответ"}</span><span>${esc(e.text)}</span></li>`
-    : `<li class="note"><span>${esc(when(e.ts))}</span><span>заметка</span><span>${esc(e.text)}</span></li>`).join("");
-  const err = s.error ? `<div class="error">${esc(s.error)}</div>` : "";
-  return `<div class="milestones">${ms}</div>${err}<details><summary>Журнал · ${s.events.length}</summary><ul class="log" style="margin-top:8px">${rows}</ul></details>`;
+function det(key, summary, body) {
+  return `<details data-key="${esc(key)}" ${openDetails.has(key) ? "open" : ""}><summary>${summary}</summary>${body}</details>`;
 }
 
-function taskRows(s) {
-  const open = openRows.has(s.id);
-  return `<tr class="row ${open ? "open" : ""}" data-row="${esc(s.id)}">
-      <td class="col-task">${title(s)}</td><td>${stage(s)}</td><td>${statusBadge(s)}</td>
-      <td class="col-links">${linksOf(s)}</td><td class="col-when">${esc(ago(s.last_ts))}</td></tr>` +
-    (open ? `<tr class="detail"><td colspan="5">${detail(s)}</td></tr>` : "");
+function sessionOf(name) {
+  return (last.orchestrators.find(o => o.name === name) || {}).session_id || "";
 }
 
 function replyForm(key, sessionId, stream) {
   const rc = receipts.get(key) || {};
-  return `<form class="reply ask-body" data-key="${esc(key)}" data-session="${esc(sessionId)}" data-stream="${esc(stream)}">
+  return `<form class="reply stack" data-key="${esc(key)}" data-session="${esc(sessionId)}" data-stream="${esc(stream)}">
     <textarea name="text" placeholder="Ответ оркестратору${stream ? " по " + esc(stream) : ""}">${esc(drafts.get(key) || "")}</textarea>
     <div class="row-actions">
       <button type="submit" class="primary">Отправить</button>
@@ -295,56 +280,143 @@ function replyForm(key, sessionId, stream) {
     </div></form>`;
 }
 
-function sessionOf(name) {
-  return (last.orchestrators.find(o => o.name === name) || {}).session_id || "";
+function askPanel(key, items, ask, session, stream) {
+  const origin = ask.origin
+    ? `<div class="msg-label">Как спросил оркестратор · ${esc(when(ask.origin.ts))}</div><div class="quote">${md(ask.origin.text)}</div>`
+    : `<div class="msg-label">Сообщение с вопросом не найдено в транскрипте</div>`;
+  const updates = (ask.updates || []).length
+    ? `<div style="margin-top:var(--space-4)">${det(key + ":updates", `Обновления · ${ask.updates.length}`,
+        `<div class="stack">${ask.updates.map(u => `<div><div class="quote">${md(u.paragraphs.join("\n\n"))}</div><div class="quote-meta">${esc(when(u.ts))}</div></div>`).join("")}</div>`)}</div>`
+    : "";
+  return `<section class="panel"><div class="panel-head"><h2>Ждёт твоего ответа</h2></div>
+    <div class="panel-body"><div class="question"><ul>${items.map(i => `<li>${inline(i)}</li>`).join("")}</ul></div>
+    ${origin}${updates}<div class="msg-label">Твой ответ</div>${replyForm(key, session, stream)}</div></section>`;
 }
 
-function askBlock(key, head, what, request, session, stream) {
-  const open = openAsks.has(key);
-  const quotes = (request || []).map(r => `<div class="quote">${md(r.paragraphs.join("\n\n"))}</div>
-    <div class="quote-meta">из сообщения оркестратора · ${esc(when(r.ts))}</div>`);
-  const [first, ...older] = quotes;
-  const body = open ? `<div class="ask-body">${first || ""}${older.length ? `<details><summary>Ранее · ${older.length}</summary><div class="ask-body">${older.join("")}</div></details>` : ""}</div>${replyForm(key, session, stream)}` : "";
-  return `<div class="ask"><div class="ask-top"><div class="ask-main">${head}<div class="ask-what">${what}</div></div>
-    <button type="button" class="${open ? "" : "primary"}" data-ask="${esc(key)}">${open ? "Свернуть" : "Ответить"}</button></div>${body}</div>`;
+function contourPanel(s) {
+  const w = s.workspace || {};
+  if (!w.available) return "";
+  const info = w.info || {}, web = info.web || {}, st = info.status || {};
+  const up = w.app_up, starting = up && up.running;
+  const app = st.application;
+  const appBadge = starting ? `<span class="badge dot">запускается</span>`
+    : app === "running" ? `<span class="badge you dot">app:up запущен</span>`
+    : app ? `<span class="badge">приложение: ${esc(app)}</span>` : `<span class="badge quiet">статус неизвестен</span>`;
+  const b = busy.get(s.id) || "";
+  const actions = `<button type="button" data-ws="refresh" data-stream="${esc(s.id)}" ${b ? "disabled" : ""}>${b === "refresh" ? "Обновляю…" : "Обновить"}</button>
+    <button type="button" class="primary" data-ws="up" data-stream="${esc(s.id)}" ${b || starting || app === "running" ? "disabled" : ""}>${starting || b === "up" ? "Запускается…" : "Запустить app:up"}</button>`;
+  const link = (name, url) => url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${name}<span>${esc(url.replace(/^https?:\/\//, ""))}</span></a>` : "";
+  let body;
+  if (w.loading) body = `<div class="muted">Читаю task workspace:info…</div>`;
+  else if (w.error) body = `<div class="error">${esc(w.error)}</div>`;
+  else body = `<div class="contour-links">${link("Console", web.console)}${link("Admin", web.admin)}${link("DbGate", web.dbgate)}${link("API", web.api)}${link("RabbitScout", web.rabbitscout)}</div>
+    <dl class="kv">
+      <dt>Инфраструктура</dt><dd>${esc(st.infrastructure || "—")} · общая: ${esc(st.sharedInfrastructure || "—")}</dd>
+      <dt>Workspace</dt><dd>${esc((info.workspace || {}).id || "—")}</dd>
+      <dt>PostgreSQL</dt><dd><code>${esc((info.data || {}).postgresql || "—")}</code></dd>
+      <dt>Проверено</dt><dd>${esc(when(w.checked))}</dd>
+    </dl>`;
+  const log = up ? `<div>${det(s.id + ":appup", `Вывод app:up${up.running ? " (идёт)" : ` · код ${esc(up.exit_code)}`}`, `<pre>${esc(up.tail || "")}</pre>`)}</div>` : "";
+  return `<section class="panel"><div class="panel-head"><h2>Стенд</h2>${appBadge}<span class="right">${actions}</span></div>
+    <div class="panel-body contour">${body}${log}</div></section>`;
 }
 
-function render() {
+function stagesPanel(s) {
+  const reached = new Map(s.milestones.map(m => [m.checkpoint, m.ts]));
+  const ms = last.checkpoints.map(c => `<div class="ms ${reached.get(c) ? "done" : ""}"><b>${esc(STAGES[c] || c)}</b>${reached.get(c) ? esc(when(reached.get(c))) : "—"}</div>`).join("");
+  return `<section class="panel"><div class="panel-head"><h2>Этапы</h2><span class="right">${stage(s)}</span></div>
+    <div class="panel-body"><div class="milestones">${ms}</div></div></section>`;
+}
+
+function journalPanel(s) {
+  const rows = [...s.events].reverse().map(e => e.kind === "checkpoint"
+    ? `<li><span>${esc(when(e.ts))}</span><span class="cp">${esc(STAGES[e.checkpoint] || e.checkpoint)} · ${e.direction === "in" ? "от потока" : "ответ"}</span><span>${esc(e.text)}</span></li>`
+    : `<li class="note"><span>${esc(when(e.ts))}</span><span>заметка</span><span>${esc(e.text)}</span></li>`).join("");
+  return `<section class="panel"><div class="panel-head"><h2>Журнал</h2><span class="count">${s.events.length}</span></div>
+    <div class="panel-body"><ul class="log">${rows}</ul></div></section>`;
+}
+
+function taskView(s) {
+  const d = s.derived;
+  const meta = [statusBadge(s), linksOf(s),
+    d.phase ? `<span class="muted">фаза: ${esc(d.phase)}</span>` : "",
+    `<span class="muted">событие ${esc(ago(s.last_ts))}</span>`].join("");
+  const err = s.error ? `<div class="error">${esc(s.error)}</div>` : "";
+  return `<a class="back" href="#/">← Все задачи</a>
+    <div class="page-head"><div><div class="id">${esc(s.id)}</div><h1 class="big">${esc(titleOf(s))}</h1>
+      <div class="head-meta">${meta}</div>${err}</div></div>
+    ${s.owner_asks.length ? askPanel("s:" + s.id, s.owner_asks, s.ask || {}, sessionOf(s.orchestrator), s.id) : ""}
+    ${contourPanel(s)}${stagesPanel(s)}${journalPanel(s)}`;
+}
+
+function generalView(g) {
+  return `<a class="back" href="#/">← Все задачи</a>
+    <div class="page-head"><div><div class="id">вопрос без задачи</div><h1 class="big">${inline(g.item)}</h1></div></div>
+    ${askPanel("g:" + g.id, [g.item], g.ask || {}, sessionOf(g.orchestrator), "")}`;
+}
+
+function homeView() {
   const d = last;
   const openS = d.streams.filter(s => !s.closed), closedS = d.streams.filter(s => s.closed);
   const waiting = openS.filter(s => s.owner_asks.length);
   const nAsks = waiting.length + d.general_asks.length;
-
-  document.getElementById("sub").textContent = `обновлено ${new Date().toLocaleTimeString("ru-RU")}`;
-  document.getElementById("stats").innerHTML =
-    `<span class="stat"><b>${nAsks}</b>ждут тебя</span><span class="stat"><b>${openS.length}</b>в работе</span><span class="stat"><b>${closedS.length}</b>закрыто</span>`;
-
-  document.getElementById("asks-count").textContent = nAsks;
-  document.getElementById("asks").innerHTML = (waiting.map(s => askBlock("s:" + s.id, title(s),
-      s.owner_asks.map(inline).join("<br>"), s.request, sessionOf(s.orchestrator), s.id)).join("") +
-    d.general_asks.map(g => askBlock("g:" + g.item, `<div class="id">без задачи</div>`, inline(g.item), [], sessionOf(g.orchestrator), "")).join(""))
-    || `<div class="empty">Сейчас никто не ждёт твоего ответа.</div>`;
-
+  const askRows = waiting.map(s => `<a class="list-row" href="#/task/${encodeURIComponent(s.id)}">
+      <div class="list-main"><div class="id">${esc(s.id)}</div><div class="task-title">${esc(titleOf(s))}</div>
+      <div class="list-ask">${s.owner_asks.map(inline).join(" · ")}</div></div>
+      <div class="list-side">${esc(ago((s.ask && s.ask.origin || {}).ts))} →</div></a>`).join("") +
+    d.general_asks.map(g => `<a class="list-row" href="#/ask/${encodeURIComponent(g.id)}">
+      <div class="list-main"><div class="id">без задачи</div><div class="task-title">${inline(g.item)}</div></div>
+      <div class="list-side">${esc(ago((g.ask && g.ask.origin || {}).ts))} →</div></a>`).join("");
   const shown = showClosed ? openS.concat(closedS) : openS;
-  document.getElementById("tasks-count").textContent = shown.length;
-  document.getElementById("toggle-closed").textContent = showClosed ? "Скрыть закрытые" : `Показать закрытые (${closedS.length})`;
-  document.getElementById("tasks").innerHTML = shown.map(taskRows).join("") || `<tr><td colspan="5" class="empty">Нет задач.</td></tr>`;
+  const rows = shown.map(s => `<tr class="row" data-href="#/task/${esc(encodeURIComponent(s.id))}">
+      <td class="col-task"><div class="id">${esc(s.id)}</div><div class="task-title">${esc(titleOf(s))}</div></td>
+      <td>${stage(s)}</td><td>${statusBadge(s)}</td><td class="col-links">${linksOf(s, false)}</td>
+      <td class="col-when">${esc(ago(s.last_ts))}</td></tr>`).join("");
+  const orch = d.orchestrators.map(o => `<div class="panel-body"><b>${esc(o.name)}</b> <span class="muted">· ${esc(ago(o.message_ts))}</span>
+      ${o.error ? `<div class="error">${esc(o.error)}</div>` : `<div class="sub">${inline(o.status_line || "нет строки статуса")}</div>`}
+      <div style="margin-top:8px">${det("orch:" + o.name, "Последнее сообщение", `<div class="quote">${md(o.message)}</div>`)}</div></div>`).join("");
+  const replies = [...(d.replies || [])].reverse().map(r =>
+    `<li class="${r.ok ? "" : "note"}"><span>${esc(when(r.ts))}</span><span>${r.ok ? "доставлено" : "не доставлено"}</span><span>${esc(r.text)}${r.error ? " — " + esc(r.error) : ""}</span></li>`).join("");
+  return `<div class="page-head"><div><h1>Задачи оркестратора</h1><div class="sub" id="sub"></div></div>
+      <div class="stats"><span class="stat"><b>${nAsks}</b>ждут тебя</span><span class="stat"><b>${openS.length}</b>в работе</span><span class="stat"><b>${closedS.length}</b>закрыто</span></div></div>
+    <section class="panel"><div class="panel-head"><h2>Ждут твоего ответа</h2><span class="count">${nAsks}</span></div>
+      ${askRows || `<div class="empty">Сейчас никто не ждёт твоего ответа.</div>`}</section>
+    <section class="panel"><div class="panel-head"><h2>Задачи</h2><span class="count">${shown.length}</span>
+      <span class="right"><button class="toggle" id="toggle-closed" type="button">${showClosed ? "Скрыть закрытые" : `Показать закрытые (${closedS.length})`}</button></span></div>
+      <table class="tasks"><thead><tr><th class="col-task">Задача</th><th>Этап</th><th>Статус</th><th class="col-links">Ссылки</th><th class="col-when">Обновлено</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="empty">Нет задач.</td></tr>`}</tbody></table></section>
+    <section class="panel"><div class="panel-head"><h2>Оркестратор</h2></div>${orch}</section>
+    <section class="panel"><div class="panel-head"><h2>Отправленные ответы</h2></div>
+      <div class="panel-body">${replies ? `<ul class="log">${replies}</ul>` : `<span class="muted">Пока ничего.</span>`}</div></section>`;
+}
 
-  document.getElementById("orchs").innerHTML = d.orchestrators.map(o => `<div class="status-bar">
-      <div><b>${esc(o.name)}</b> · <span class="muted">${esc(ago(o.message_ts))}</span></div>
-      ${o.error ? `<div class="error">${esc(o.error)}</div>` : `<div style="margin-top:6px">${inline(o.status_line || "нет строки статуса")}</div>`}
-      <details style="margin-top:8px"><summary>Последнее сообщение</summary><div class="quote" style="margin-top:8px">${md(o.message)}</div></details></div>`).join("");
+function render() {
+  if (!last) return;
+  const r = route();
+  let html;
+  if (r.kind === "task") {
+    const s = last.streams.find(x => x.id === r.id);
+    html = s ? taskView(s) : `<a class="back" href="#/">← Все задачи</a><div class="empty">Задача ${esc(r.id)} не найдена.</div>`;
+  } else if (r.kind === "ask") {
+    const g = last.general_asks.find(x => x.id === r.id);
+    html = g ? generalView(g) : `<a class="back" href="#/">← Все задачи</a><div class="empty">Вопрос уже снят.</div>`;
+  } else {
+    html = homeView();
+  }
+  document.getElementById("app").innerHTML = html;
+  stampUpdated();
+}
 
-  document.getElementById("replies").innerHTML = [...(d.replies || [])].reverse().map(r =>
-    `<li class="${r.ok ? "" : "note"}"><span>${esc(when(r.ts))}</span><span>${r.ok ? "доставлено" : "не доставлено"}</span><span>${esc(r.text)}${r.error ? " — " + esc(r.error) : ""}</span></li>`).join("")
-    || `<li class="note" style="display:block">Пока ничего.</li>`;
+function stampUpdated() {
+  const el = document.getElementById("sub");
+  if (el && updatedAt) el.textContent = "обновлено " + updatedAt.toLocaleTimeString("ru-RU");
 }
 
 function safeRender() {
   try {
     render();
   } catch (e) {
-    document.getElementById("sub").innerHTML = `<span class="error">ошибка отрисовки: ${esc(e.message)}</span>`;
+    document.getElementById("app").insertAdjacentHTML("afterbegin", `<div class="error">ошибка отрисовки: ${esc(e.message)}</div>`);
   }
 }
 
@@ -357,15 +429,35 @@ async function refresh() {
     const res = await fetch("/api/state", {cache: "no-store"});
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || res.status);
+    updatedAt = new Date();
+    const key = JSON.stringify(data);
     last = data;
-    if (editing()) pendingRender = true; else safeRender();
+    // Re-render only on a real change, so open blocks and scroll stay put.
+    if (key !== lastKey) {
+      lastKey = key;
+      if (editing()) pendingRender = true; else safeRender();
+    } else {
+      stampUpdated();
+    }
   } catch (e) {
-    document.getElementById("sub").innerHTML = `<span class="error">нет связи с сервером: ${esc(e.message)}</span>`;
+    const el = document.getElementById("sub");
+    if (el) el.innerHTML = `<span class="error">нет связи с сервером: ${esc(e.message)}</span>`;
   } finally {
     loading = false;
   }
 }
 
+async function post(path, body) {
+  const res = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+  const data = await res.json().catch(() => ({}));
+  return {res, data};
+}
+
+document.addEventListener("toggle", e => {
+  const k = e.target.dataset?.key;
+  if (!k) return;
+  e.target.open ? openDetails.add(k) : openDetails.delete(k);
+}, true);
 document.addEventListener("input", e => {
   const f = e.target.closest("form.reply");
   if (f) drafts.set(f.dataset.key, e.target.value);
@@ -373,29 +465,31 @@ document.addEventListener("input", e => {
 document.addEventListener("focusout", () => setTimeout(() => {
   if (pendingRender && !editing()) { pendingRender = false; safeRender(); }
 }, 0));
-document.addEventListener("click", e => {
+window.addEventListener("hashchange", () => { window.scrollTo(0, 0); safeRender(); });
+
+document.addEventListener("click", async e => {
   if (e.target.closest("a")) return;
   const q = e.target.closest("[data-quick]");
   if (q) {
     const f = q.closest("form"), ta = f.querySelector("textarea");
     ta.value = q.dataset.quick; drafts.set(f.dataset.key, ta.value); ta.focus(); return;
   }
-  const a = e.target.closest("[data-ask]");
-  if (a) {
-    const k = a.dataset.ask;
-    openAsks.has(k) ? openAsks.delete(k) : openAsks.add(k);
-    render();
-    if (openAsks.has(k)) document.querySelector(`form[data-key="${CSS.escape(k)}"] textarea`)?.focus();
+  if (e.target.id === "toggle-closed") { showClosed = !showClosed; safeRender(); return; }
+  const ws = e.target.closest("[data-ws]");
+  if (ws) {
+    const stream = ws.dataset.stream, action = ws.dataset.ws;
+    if (action === "up" && !confirm(`Запустить task app:up для ${stream}?`)) return;
+    busy.set(stream, action); safeRender();
+    const {res, data} = await post(`/api/workspace/${action}`, {stream});
+    busy.delete(stream);
+    if (!res.ok) alert("Не получилось: " + (data.error || res.status));
+    lastKey = ""; await refresh();
     return;
   }
-  if (e.target.id === "toggle-closed") { showClosed = !showClosed; render(); return; }
-  const row = e.target.closest("tr[data-row]");
-  if (row) {
-    const id = row.dataset.row;
-    openRows.has(id) ? openRows.delete(id) : openRows.add(id);
-    render();
-  }
+  const row = e.target.closest("tr[data-href]");
+  if (row) location.hash = row.dataset.href;
 });
+
 document.addEventListener("submit", async e => {
   e.preventDefault();
   const f = e.target, ta = f.querySelector("textarea"), rc = f.querySelector(".receipt"), btn = f.querySelector("button[type=submit]");
@@ -405,9 +499,7 @@ document.addEventListener("submit", async e => {
   if (!confirm(`Отправить оркестратору${f.dataset.stream ? " по " + f.dataset.stream : ""}?\n\n${text}`)) return;
   btn.disabled = true; note("", "Отправляю…");
   try {
-    const res = await fetch("/api/reply", {method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({session_id: f.dataset.session, stream: f.dataset.stream, text})});
-    const r = await res.json();
+    const {res, data: r} = await post("/api/reply", {session_id: f.dataset.session, stream: f.dataset.stream, text});
     if (res.ok && r.ok) {
       note("", "Доставлено оркестратору · " + new Date().toLocaleTimeString("ru-RU"));
       drafts.delete(f.dataset.key); ta.value = "";

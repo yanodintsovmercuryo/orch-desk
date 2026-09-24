@@ -111,18 +111,42 @@ class TranscriptTest(unittest.TestCase):
             text, status, _ = transcript.last_status(msgs)
             self.assertEqual(text, MESSAGE)
             self.assertTrue(status.startswith("in flight: MER-3"))
-            req = transcript.request_for(msgs, "MER-1", {"122"})
-            self.assertEqual(len(req), 1)
+            thread = transcript.ask_thread(msgs, lambda i: "MER-1" in i,
+                                           lambda t: transcript.paragraphs_about(t, "MER-1", {"122"}))
+            self.assertIn("MER-1 (PR #122) is ready", thread["origin"]["text"])
+            self.assertNotIn("waiting:", thread["origin"]["text"])
         finally:
             os.unlink(f.name)
 
 
+class AskThreadTest(unittest.TestCase):
+    def msgs(self, *texts):
+        return [(t, f"T{n}") for n, t in enumerate(texts)]  # newest first
+
+    def test_origin_is_the_oldest_turn_of_the_run_that_talks_about_it(self):
+        msgs = self.msgs(
+            "update on MER-1\n\nwaiting: ты — вариант A по MER-1 · t",
+            "carry only\n\nwaiting: ты — вариант A по MER-1 · t",
+            "MER-1: options A, B\n\nOption A details\n\nwaiting: ты — вариант A по MER-1 · t",
+            "before the ask\n\nwaiting: ты — something else · t",
+            "old MER-1 talk\n\nwaiting: ты — вариант A по MER-1 · t",
+        )
+        about = lambda t: transcript.paragraphs_about(t, "MER-1", set())
+        thread = transcript.ask_thread(msgs, lambda i: "MER-1" in i, about)
+        self.assertEqual(thread["origin"]["ts"], "T2")
+        self.assertIn("Option A details", thread["origin"]["text"])
+        self.assertEqual([u["ts"] for u in thread["updates"]], ["T0"])
+
+    def test_no_ask_no_thread(self):
+        self.assertEqual(transcript.ask_thread(self.msgs("x\n\nwaiting: ты — y · t"), lambda i: "MER-1" in i), {})
+
+
 class ViewTest(unittest.TestCase):
     def test_bare_pr_number_counts_only_without_other_stream(self):
-        self.assertTrue(view._names_stream("по go-libs #162: мерж", "MER-2", 162))
-        self.assertFalse(view._names_stream("приёмка #162 (MER-5)", "MER-2", 162))
-        self.assertFalse(view._names_stream("приёмка #1620", "MER-2", 162))
-        self.assertTrue(view._names_stream("приёмка вида #122 (MER-1) и #120 (MER-2)", "MER-2", None))
+        self.assertTrue(view._names_stream("по go-libs #162: мерж", "MER-2", {162}))
+        self.assertFalse(view._names_stream("приёмка #162 (MER-5)", "MER-2", {"162"}))
+        self.assertFalse(view._names_stream("приёмка #1620", "MER-2", {"162"}))
+        self.assertTrue(view._names_stream("приёмка вида #122 (MER-1) и #120 (MER-2)", "MER-2", set()))
 
 
 class DeliverTest(unittest.TestCase):

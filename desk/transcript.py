@@ -4,8 +4,9 @@ import glob
 import json
 import os
 import re
+import threading
 
-TAIL_BYTES = 4 * 1024 * 1024
+TAIL_BYTES = 16 * 1024 * 1024
 STATUS_RE = re.compile(r"(?:^|\s·\s)(?:waiting|in flight|closed):")
 OWNER_RE = re.compile(r"^(?:ты|you|owner|владелец)\s*(?:—|-|:)\s*", re.IGNORECASE)
 STREAM_RE = re.compile(r"\b[A-Z][A-Z0-9]+-\d+\b")
@@ -44,8 +45,17 @@ def _texts(entry):
     return [c.get("text", "") for c in content if isinstance(c, dict) and c.get("type") == "text"]
 
 
-def recent_messages(path, limit=80):
-    """Assistant texts, newest first, as (text, timestamp)."""
+_memo = {}
+_memo_lock = threading.Lock()
+
+
+def recent_messages(path, limit=400):
+    """Assistant texts, newest first, as (text, timestamp); reparsed only when the file changes."""
+    st = os.stat(path)
+    key = (path, st.st_size, st.st_mtime_ns, limit)
+    with _memo_lock:
+        if _memo.get("key") == key:
+            return _memo["value"]
     out = []
     for raw in reversed(_tail_lines(path)):
         if not raw.strip():
@@ -57,30 +67,65 @@ def recent_messages(path, limit=80):
         for text in reversed(_texts(entry)):
             if text.strip():
                 out.append((text.strip(), entry.get("timestamp", "")))
-                if len(out) >= limit:
-                    return out
+        if len(out) >= limit:
+            break
+    with _memo_lock:
+        _memo.update(key=key, value=out)
     return out
+
+
+def status_of(text):
+    for line in reversed(text.splitlines()):
+        if STATUS_RE.search(line):
+            return line.strip()
+    return ""
+
+
+def strip_status(text):
+    return "\n".join(l for l in text.splitlines() if not STATUS_RE.search(l)).strip()
 
 
 def last_status(messages):
     """(message text, status line, timestamp) of the newest text ending a turn."""
     for text, ts in messages:
-        for line in reversed(text.splitlines()):
-            if STATUS_RE.search(line):
-                return text, line.strip(), ts
+        line = status_of(text)
+        if line:
+            return text, line, ts
     return "", "", ""
 
 
-def request_for(messages, stream_id, pr_numbers, limit=3):
-    """Paragraphs about the stream from the newest messages naming it, newest first."""
-    out = []
+def ask_thread(messages, matches, about=None, updates_limit=3):
+    """Where an owner ask began and what was said about it since.
+
+    Walks turn-ending messages back from the newest while their waiting line still
+    carries a matching item; the oldest of that run is where the question was put.
+    """
+    origin, run = None, []
     for text, ts in messages:
-        paras = paragraphs_about(text, stream_id, pr_numbers)
-        if paras:
-            out.append({"ts": ts, "paragraphs": paras})
-            if len(out) >= limit:
-                break
-    return out
+        line = status_of(text)
+        if not line:
+            continue
+        if not any(matches(i) for i in owner_items(line)):
+            break
+        origin = (text, ts)
+        run.append((text, ts))
+    if not origin:
+        return {}
+    updates = []
+    if about:
+        # The run may start in a turn that only carried the ask forward; the question
+        # itself is in the oldest turn of the run that talks about the stream.
+        relevant = [m for m in run if about(m[0])]
+        if relevant:
+            origin = relevant[-1]
+            run = run[:run.index(origin) + 1]
+        for text, ts in run[:-1]:
+            paras = about(text)
+            if paras:
+                updates.append({"ts": ts, "paragraphs": paras})
+                if len(updates) >= updates_limit:
+                    break
+    return {"origin": {"ts": origin[1], "text": strip_status(origin[0])}, "updates": updates}
 
 
 def owner_items(status_line):

@@ -1,10 +1,11 @@
 """Assemble the page's JSON from orchestrator state, transcripts and links."""
 
+import hashlib
 import os
 import re
 from concurrent.futures import ThreadPoolExecutor
 
-from . import links, state, transcript
+from . import links, state, transcript, workspace
 
 CLOSED_LIMIT = 15
 
@@ -48,25 +49,35 @@ def build(root=None):
 
     def assemble(row):
         orch_name, st, messages, items = row
-        journal_prs = set()
+        journal_prs, mentioned = set(), set()
         for ev in st.events:
-            # Only "PR #N": a bare #N in a journal may be another repository's PR.
+            # Only "PR #N" names the stream's own PR; a bare #N may be another repository's.
             journal_prs |= set(re.findall(r"\bPR #(\d+)\b", ev.text))
+            mentioned |= transcript.refs(ev.text)[1]
         lk = _links(st, journal_prs)
         pr_no = lk["pr"].get("number")
-        own_prs = {str(pr_no)} if pr_no else set()
+        own_prs = {str(pr_no)} if pr_no else journal_prs
+        # Until GitHub answers, any #N the journal mentions may identify the stream in an ask.
+        match_prs = own_prs if pr_no else journal_prs | mentioned
         idx, moved = state.progress(st.events)
-        asks = [i for i in items if _names_stream(i, st.id, pr_no)]
-        request = transcript.request_for(messages, st.id, own_prs) if asks else []
+        asks = [i for i in items if _names_stream(i, st.id, match_prs)]
+        ask = transcript.ask_thread(
+            messages, lambda i: _names_stream(i, st.id, match_prs),
+            lambda t: transcript.paragraphs_about(t, st.id, own_prs)) if asks else {}
+        closed = idx == len(state.ORDERED) - 1
+        contour = {} if closed else workspace.status(st.header.get("repository", ""))
+        if contour.get("app_up"):
+            contour["app_up"]["tail"] = workspace.log_tail(contour["app_up"]["log"])
         return {
+            "workspace": contour,
             "id": st.id, "orchestrator": orch_name, "header": st.header, "derived": st.derived,
             "error": st.error, "progress": {"index": idx, "total": len(state.ORDERED), "intent_moved": moved},
             "milestones": state.milestones(st.events),
             "events": [_event_json(e) for e in st.events],
             "last_ts": st.events[-1].ts if st.events else "",
-            "closed": idx == len(state.ORDERED) - 1,
+            "closed": closed,
             "owner_asks": asks,
-            "request": request,
+            "ask": ask,
             "links": lk,
         }
 
@@ -74,8 +85,19 @@ def build(root=None):
         rows = list(pool.map(assemble, all_streams))
 
     matched = {a for r in rows for a in r["owner_asks"]}
+    by_orch = {}
+    for orch_name, _, messages, _ in all_streams:
+        by_orch.setdefault(orch_name, messages)
     for o in out["orchestrators"]:
-        out["general_asks"] += [{"orchestrator": o["name"], "item": i} for i in o["owner_items"] if i not in matched]
+        for item in o["owner_items"]:
+            if item in matched:
+                continue
+            ids = transcript.refs(item)[0]
+            same = (lambda i, ids=ids: bool(transcript.refs(i)[0] & ids)) if ids else (lambda i, item=item: i == item)
+            out["general_asks"].append({
+                "id": "g-" + hashlib.sha1(item.encode()).hexdigest()[:8], "orchestrator": o["name"], "item": item,
+                "ask": transcript.ask_thread(by_orch.get(o["name"], []), same),
+            })
 
     open_rows = sorted((r for r in rows if not r["closed"]),
                        key=lambda r: (not r["owner_asks"], _neg(r["last_ts"])))
@@ -96,12 +118,22 @@ def build_orchestrators(root=None):
     return out
 
 
-def _names_stream(item, stream_id, pr_no):
+def stream_repo(stream_id, root=None):
+    """The worktree a live stream's card names; empty for an unknown stream."""
+    for orch in state.orchestrators(root):
+        card = os.path.join(orch["dir"], "streams", stream_id, "card.md")
+        if os.path.isfile(card):
+            with open(card, encoding="utf-8") as f:
+                return state.parse_card(f.read())[0].get("repository", "")
+    return ""
+
+
+def _names_stream(item, stream_id, pr_numbers):
     ids, prs = transcript.refs(item)
     if stream_id in ids:
         return True
     # A bare PR number counts only when the item names no other stream.
-    return bool(pr_no) and str(pr_no) in prs and not ids
+    return bool(prs & {str(n) for n in pr_numbers}) and not ids
 
 
 def _neg(ts):
