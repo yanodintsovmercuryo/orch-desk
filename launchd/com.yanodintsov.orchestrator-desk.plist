@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.yanodintsov.orchestrator-desk</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/yanodintsov/.local/share/mise/installs/python/latest/bin/python3</string>
+    <string>/Users/yanodintsov/tools/orchestrator-desk/server.py</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/yanodintsov/tools/orchestrator-desk</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/Users/yanodintsov/.local/share/mise/installs/node/22/bin:/Applications/Orca.app/Contents/Resources/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>PYTHONUNBUFFERED</key>
+    <string>1</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>StandardOutPath</key>
+  <string>/Users/yanodintsov/tools/orchestrator-desk/desk.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/yanodintsov/tools/orchestrator-desk/desk.log</string>
+</dict>
+</plist>
