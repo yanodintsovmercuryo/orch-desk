@@ -80,7 +80,7 @@ table.tasks { width: 100%; border-collapse: collapse; font-size: var(--text-sm);
 .tasks .col-task { width: 46%; }
 .tasks .col-when { white-space: nowrap; color: var(--text-secondary); }
 
-.stage { display: grid; gap: 6px; min-width: 170px; }
+.stage { display: grid; gap: 6px; min-width: 140px; }
 .bar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
 .bar i { height: 4px; border-radius: 2px; background: var(--border-strong); }
 .bar i.done { background: var(--text-primary); }
@@ -125,10 +125,10 @@ table.tasks { width: 100%; border-collapse: collapse; font-size: var(--text-sm);
 .ms.done { color: var(--text-secondary); border-top-color: var(--text-primary); }
 .ms b { display: block; font-weight: 500; color: inherit; }
 .log { list-style: none; margin: 0; padding: 0; font-size: var(--text-sm); }
-.log li { display: grid; grid-template-columns: 110px 170px 1fr; gap: var(--space-3); padding: 6px 0; border-top: 1px solid var(--border); color: var(--text-secondary); }
+.log li { display: grid; grid-template-columns: 120px 1fr; gap: var(--space-3); padding: 6px 0; border-top: 1px solid var(--border); color: var(--text-secondary); }
 .log li:first-child { border-top: 0; }
 .log li.note { color: var(--text-muted); }
-.log .cp { color: var(--text-primary); }
+.log .cp { color: var(--text-primary); font-weight: 500; }
 
 details > summary { cursor: pointer; font-size: var(--text-sm); color: var(--text-secondary); list-style: none; }
 details > summary::-webkit-details-marker { display: none; }
@@ -150,26 +150,39 @@ button:disabled { opacity: .45; cursor: default; }
 .toggle { background: none; border: 0; padding: 0; color: var(--text-secondary); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-strong); }
 .toggle:hover { background: none; color: var(--text-primary); }
 
-.trow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-6); align-items: center; padding: 18px var(--space-6); border-top: 1px solid var(--border); cursor: pointer; }
-.trow:first-child { border-top: 0; }
-.trow:hover { background: var(--surface-hover); }
-.trow-top { display: flex; align-items: center; gap: var(--space-3); }
-.trow-title { font-size: 1.0625rem; font-weight: 500; line-height: 1.35; margin-top: 4px; }
-.trow-ask { margin-top: 6px; font-size: var(--text-sm); color: var(--text-secondary); }
-.trow-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--space-4); margin-top: 10px; font-size: var(--text-sm); color: var(--text-muted); }
-.trow-meta .bar { width: 112px; }
-.linkbtns { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: flex-end; }
-.linkbtn { display: inline-flex; flex-direction: column; justify-content: center; min-width: 124px; padding: 8px 14px; border: 1px solid var(--border-strong); border-radius: var(--r); text-decoration: none; background: var(--surface-card); line-height: 1.3; }
-.linkbtn:hover { border-color: var(--text-muted); background: var(--surface-raised); }
-.linkbtn b { font-weight: 500; font-size: var(--text-sm); color: var(--text-primary); }
-.linkbtn span { font-size: var(--text-xs); color: var(--text-muted); }
-.linkbtn.off { border-style: dashed; cursor: default; }
-.linkbtn.off:hover { background: var(--surface-card); border-color: var(--border-strong); }
-.open-btn { font-size: var(--text-sm); font-weight: 500; padding: 8px 14px; border-radius: var(--r); background: var(--text-primary); color: var(--text-inverse); white-space: nowrap; }
+
+.row-ask { margin-top: 4px; font-size: var(--text-xs); color: var(--text-secondary); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.task-head { margin-bottom: var(--space-6); }
+.task-head-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); font-size: var(--text-sm); margin-bottom: var(--space-2); }
+.task-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: var(--space-6); align-items: start; }
+.task-layout.one { grid-template-columns: minmax(0, 1fr); max-width: 860px; }
+.task-main .panel:last-child, .task-side .panel:last-child { margin-bottom: 0; }
+.stack-lg { display: grid; gap: var(--space-5); }
+.section-label { font-size: var(--text-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--space-2); }
+.ask-panel .question { font-size: 1.0625rem; font-weight: 500; line-height: 1.45; }
+.side-list { display: grid; }
+.side-link { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: 10px var(--space-5); border-top: 1px solid var(--border); text-decoration: none; color: inherit; }
+.side-list .side-link:first-child { border-top: 0; }
+a.side-link:hover { background: var(--surface-hover); }
+.side-link span { display: grid; min-width: 0; }
+.side-link b { font-weight: 500; font-size: var(--text-sm); }
+.side-link small { font-size: var(--text-xs); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-link i { font-style: normal; color: var(--text-muted); }
+.side-link.off b { color: var(--text-muted); }
+.side-kv { padding: var(--space-3) var(--space-5) var(--space-4); border-top: 1px solid var(--border); margin: 0; grid-template-columns: 110px 1fr; font-size: var(--text-xs); }
+.side-kv .mono { font-family: var(--font-mono); word-break: break-all; }
+.side-actions { border-top: 1px solid var(--border); }
+.timeline { list-style: none; margin: 0; padding: var(--space-3) var(--space-5) var(--space-4); }
+.timeline li { display: flex; justify-content: space-between; gap: var(--space-3); padding: 5px 0 5px 18px; position: relative; font-size: var(--text-sm); color: var(--text-muted); }
+.timeline li::before { content: ""; position: absolute; left: 0; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; border: 1px solid var(--border-strong); }
+.timeline li.done { color: var(--text-secondary); }
+.timeline li.done::before { background: var(--text-primary); border-color: var(--text-primary); }
+.timeline li.now { color: var(--text-primary); font-weight: 500; }
+.timeline li.now::before { border-color: var(--text-primary); box-shadow: 0 0 0 3px rgba(255, 255, 255, .12); }
+.timeline small { font-size: var(--text-xs); color: var(--text-muted); font-weight: 400; }
 
 @media (max-width: 899px) {
-  .trow { grid-template-columns: 1fr; gap: var(--space-3); padding: 16px; }
-  .linkbtns { justify-content: flex-start; }
+  .task-layout { grid-template-columns: 1fr; }
   .page { padding: 16px 16px 32px; }
   .tasks .col-links, .tasks .col-when { display: none; }
   .milestones { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -258,40 +271,13 @@ function titleOf(s) {
   return (s.links.linear || {}).title || s.header.branch || s.id;
 }
 
-function linksOf(s, full = true) {
-  const lin = s.links.linear || {}, pr = s.links.pr || {}, out = [];
-  if (pr.url) out.push(`<a href="${esc(pr.url)}" target="_blank" rel="noopener">PR #${esc(pr.number)}${full && pr.state ? " · " + esc(pr.state.toLowerCase()) : ""}</a>`);
-  if (lin.url) out.push(`<a href="${esc(lin.url)}" target="_blank" rel="noopener">Linear${full && lin.state ? " · " + esc(lin.state) : ""}</a>`);
+function linksOf(s) {
+  const lin = s.links.linear || {}, pr = s.links.pr || {}, w = s.workspace || {}, out = [];
+  const web = (w.info || {}).web || {};
+  if (pr.url) out.push(`<a href="${esc(pr.url)}" target="_blank" rel="noopener">PR #${esc(pr.number)}</a>`);
+  if (lin.url) out.push(`<a href="${esc(lin.url)}" target="_blank" rel="noopener">Linear</a>`);
+  if (web.console) out.push(`<a href="${esc(web.console)}" target="_blank" rel="noopener">Стенд</a>`);
   return `<span class="links">${out.join("")}</span>`;
-}
-
-function linkButtons(s) {
-  const lin = s.links.linear || {}, pr = s.links.pr || {}, w = s.workspace || {};
-  const btn = (label, sub, url) => url
-    ? `<a class="linkbtn" href="${esc(url)}" target="_blank" rel="noopener"><b>${label}</b><span>${esc(sub)}</span></a>`
-    : `<span class="linkbtn off"><b>${label}</b><span>${esc(sub)}</span></span>`;
-  const out = [pr.url ? btn(`PR #${esc(pr.number)}`, (pr.state || "").toLowerCase() || "pull request", pr.url) : btn("PR", "ещё нет", ""),
-    btn("Linear", lin.state || s.header.tracker || s.id, lin.url)];
-  const web = (w.info || {}).web || {}, app = ((w.info || {}).status || {}).application;
-  if (w.available && web.console) out.push(btn("Стенд", {running: "запущен", stopped: "остановлен"}[app] || app || "…", web.console));
-  return `<div class="linkbtns">${out.join("")}</div>`;
-}
-
-function miniStage(s) {
-  const idx = s.progress.index;
-  const bars = last.checkpoints.map((c, i) =>
-    `<i class="${i < idx || (i === idx && s.closed) ? "done" : i === idx ? "now" : ""}"></i>`).join("");
-  const label = idx >= 0 ? STAGES[last.checkpoints[idx]] : "—";
-  return `<span class="bar">${bars}</span><span>${esc(label)} · ${Math.max(idx + 1, 0)}/${last.checkpoints.length}</span>`;
-}
-
-function taskRow(s, withAsk) {
-  return `<div class="trow" data-href="#/task/${esc(encodeURIComponent(s.id))}">
-    <div><div class="trow-top"><span class="id">${esc(s.id)}</span>${withAsk ? "" : statusBadge(s)}</div>
-      <div class="trow-title">${esc(titleOf(s))}</div>
-      ${withAsk ? `<div class="trow-ask">${s.owner_asks.map(inline).join(" · ")}</div>` : ""}
-      <div class="trow-meta">${miniStage(s)}<span>обновлено ${esc(ago(s.last_ts))}</span>${s.progress.intent_moved ? "<span>цель сдвинулась</span>" : ""}</div></div>
-    ${linkButtons(s)}</div>`;
 }
 
 function stage(s) {
@@ -302,6 +288,8 @@ function stage(s) {
   return `<div class="stage"><div class="bar">${bars}</div>
     <span class="stage-label">${esc(label)} · ${Math.max(idx + 1, 0)}/${last.checkpoints.length}${s.progress.intent_moved ? " · цель сдвинулась" : ""}</span></div>`;
 }
+
+const APP = {running: "запущен", stopped: "остановлен"};
 
 function statusBadge(s) {
   if (s.closed) return `<span class="badge quiet">Закрыта</span>`;
@@ -331,104 +319,129 @@ function replyForm(key, sessionId, stream) {
 
 function askPanel(key, items, ask, session, stream) {
   const origin = ask.origin
-    ? `<div class="msg-label">Как спросил оркестратор · ${esc(when(ask.origin.ts))}</div><div class="quote">${md(ask.origin.text)}</div>`
-    : `<div class="msg-label">Сообщение с вопросом не найдено в транскрипте</div>`;
+    ? `<div class="quote">${md(ask.origin.text)}</div><div class="quote-meta">сообщение оркестратора · ${esc(when(ask.origin.ts))}</div>`
+    : `<div class="muted">Сообщение с вопросом не найдено в транскрипте.</div>`;
   const updates = (ask.updates || []).length
-    ? `<div style="margin-top:var(--space-4)">${det(key + ":updates", `Обновления · ${ask.updates.length}`,
-        `<div class="stack">${ask.updates.map(u => `<div><div class="quote">${md(u.paragraphs.join("\n\n"))}</div><div class="quote-meta">${esc(when(u.ts))}</div></div>`).join("")}</div>`)}</div>`
+    ? det(key + ":updates", `Обновления после вопроса · ${ask.updates.length}`,
+        `<div class="stack">${ask.updates.map(u => `<div><div class="quote">${md(u.paragraphs.join("\n\n"))}</div><div class="quote-meta">${esc(when(u.ts))}</div></div>`).join("")}</div>`)
     : "";
-  return `<section class="panel"><div class="panel-head"><h2>Ждёт твоего ответа</h2></div>
-    <div class="panel-body"><div class="question"><ul>${items.map(i => `<li>${inline(i)}</li>`).join("")}</ul></div>
-    ${origin}${updates}<div class="msg-label">Твой ответ</div>${replyForm(key, session, stream)}</div></section>`;
+  return `<section class="panel ask-panel"><div class="panel-head"><h2>Вопрос к тебе</h2></div>
+    <div class="panel-body stack-lg">
+      <div class="question">${items.map(i => `<div>${inline(i)}</div>`).join("")}</div>
+      <div>${origin}</div>${updates}
+      <div><div class="section-label">Ответ</div>${replyForm(key, session, stream)}</div>
+    </div></section>`;
+}
+
+function sideLink(label, sub, url) {
+  return url
+    ? `<a class="side-link" href="${esc(url)}" target="_blank" rel="noopener"><span><b>${label}</b><small>${esc(sub)}</small></span><i>↗</i></a>`
+    : `<div class="side-link off"><span><b>${label}</b><small>${esc(sub)}</small></span></div>`;
+}
+
+function linksPanel(s) {
+  const lin = s.links.linear || {}, pr = s.links.pr || {}, h = s.header;
+  return `<section class="panel"><div class="panel-head"><h2>Ссылки</h2></div><div class="side-list">
+    ${pr.url ? sideLink(`PR #${esc(pr.number)}`, [pr.state && pr.state.toLowerCase(), pr.title].filter(Boolean).join(" · "), pr.url) : sideLink("PR", "ещё не открыт", "")}
+    ${sideLink(esc(h.tracker || s.id), lin.state || "Linear", lin.url)}
+    </div>
+    <dl class="kv side-kv"><dt>Ветка</dt><dd class="mono">${esc(h.branch || "—")}</dd>
+      <dt>Worktree</dt><dd class="mono">${esc((h.repository || "—").replace(/^\/Users\/[^/]+/, "~"))}</dd></dl></section>`;
 }
 
 function contourPanel(s) {
   const w = s.workspace || {};
   if (!w.available) return "";
   const info = w.info || {}, web = info.web || {}, st = info.status || {};
-  const up = w.app_up, starting = up && up.running;
-  const app = st.application;
-  const appBadge = starting ? `<span class="badge dot">запускается</span>`
-    : app === "running" ? `<span class="badge you dot">app:up запущен</span>`
-    : app ? `<span class="badge">приложение: ${esc(app)}</span>` : `<span class="badge quiet">статус неизвестен</span>`;
+  const up = w.app_up, starting = up && up.running, app = st.application;
+  const badge = starting ? `<span class="badge dot">запускается</span>`
+    : app === "running" ? `<span class="badge you dot">запущен</span>`
+    : app ? `<span class="badge">${esc(APP[app] || app)}</span>` : "";
   const b = busy.get(s.id) || "";
-  const actions = `<button type="button" data-ws="refresh" data-stream="${esc(s.id)}" ${b ? "disabled" : ""}>${b === "refresh" ? "Обновляю…" : "Обновить"}</button>
-    <button type="button" class="primary" data-ws="up" data-stream="${esc(s.id)}" ${b || starting || app === "running" ? "disabled" : ""}>${starting || b === "up" ? "Запускается…" : "Запустить app:up"}</button>`;
-  const link = (name, url) => url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${name}<span>${esc(url.replace(/^https?:\/\//, ""))}</span></a>` : "";
   let body;
-  if (w.loading) body = `<div class="muted">Читаю task workspace:info…</div>`;
-  else if (w.error) body = `<div class="error">${esc(w.error)}</div>`;
-  else body = `<div class="contour-links">${link("Console", web.console)}${link("Admin", web.admin)}${link("DbGate", web.dbgate)}${link("API", web.api)}${link("RabbitScout", web.rabbitscout)}</div>
-    <dl class="kv">
-      <dt>Инфраструктура</dt><dd>${esc(st.infrastructure || "—")} · общая: ${esc(st.sharedInfrastructure || "—")}</dd>
-      <dt>Workspace</dt><dd>${esc((info.workspace || {}).id || "—")}</dd>
-      <dt>PostgreSQL</dt><dd><code>${esc((info.data || {}).postgresql || "—")}</code></dd>
-      <dt>Проверено</dt><dd>${esc(when(w.checked))}</dd>
-    </dl>`;
-  const log = up ? `<div>${det(s.id + ":appup", `Вывод app:up${up.running ? " (идёт)" : ` · код ${esc(up.exit_code)}`}`, `<pre>${esc(up.tail || "")}</pre>`)}</div>` : "";
-  return `<section class="panel"><div class="panel-head"><h2>Стенд</h2>${appBadge}<span class="right">${actions}</span></div>
-    <div class="panel-body contour">${body}${log}</div></section>`;
+  if (w.loading) body = `<div class="panel-body muted">Читаю task workspace:info…</div>`;
+  else if (w.error) body = `<div class="panel-body error">${esc(w.error)}</div>`;
+  else body = `<div class="side-list">
+      ${sideLink("Console", (web.console || "").replace(/^https?:\/\//, ""), web.console)}
+      ${sideLink("Admin", (web.admin || "").replace(/^https?:\/\//, ""), web.admin)}
+      ${sideLink("DbGate", (web.dbgate || "").replace(/^https?:\/\//, ""), web.dbgate)}
+      ${sideLink("API", (web.api || "").replace(/^https?:\/\//, ""), web.api)}
+      ${sideLink("RabbitScout", (web.rabbitscout || "").replace(/^https?:\/\//, ""), web.rabbitscout)}</div>
+    <dl class="kv side-kv"><dt>Инфраструктура</dt><dd>${esc(APP[st.infrastructure] || st.infrastructure || "—")}</dd>
+      <dt>Проверено</dt><dd>${esc(when(w.checked))}</dd></dl>`;
+  const log = up ? `<div class="panel-body">${det(s.id + ":appup", `Вывод app:up${up.running ? " (идёт)" : ` · код ${esc(up.exit_code)}`}`, `<pre>${esc(up.tail || "")}</pre>`)}</div>` : "";
+  const actions = `<div class="panel-body row-actions side-actions">
+      <button type="button" class="primary" data-ws="up" data-stream="${esc(s.id)}" ${b || starting || app === "running" ? "disabled" : ""}>${starting || b === "up" ? "Запускается…" : "Запустить app:up"}</button>
+      <button type="button" data-ws="refresh" data-stream="${esc(s.id)}" ${b ? "disabled" : ""}>${b === "refresh" ? "Обновляю…" : "Обновить"}</button></div>`;
+  return `<section class="panel"><div class="panel-head"><h2>Стенд</h2><span class="right">${badge}</span></div>${body}${actions}${log}</section>`;
 }
 
 function stagesPanel(s) {
+  const idx = s.progress.index;
   const reached = new Map(s.milestones.map(m => [m.checkpoint, m.ts]));
-  const ms = last.checkpoints.map(c => `<div class="ms ${reached.get(c) ? "done" : ""}"><b>${esc(STAGES[c] || c)}</b>${reached.get(c) ? esc(when(reached.get(c))) : "—"}</div>`).join("");
-  return `<section class="panel"><div class="panel-head"><h2>Этапы</h2><span class="right">${stage(s)}</span></div>
-    <div class="panel-body"><div class="milestones">${ms}</div></div></section>`;
+  const rows = last.checkpoints.map((c, i) => {
+    const cls = i < idx || (i === idx && s.closed) ? "done" : i === idx ? "now" : "";
+    return `<li class="${cls}"><span>${esc(STAGES[c] || c)}</span><small>${reached.get(c) ? esc(when(reached.get(c))) : ""}</small></li>`;
+  }).join("");
+  return `<section class="panel"><div class="panel-head"><h2>Этапы</h2><span class="right muted">${Math.max(idx + 1, 0)}/${last.checkpoints.length}</span></div>
+    <ol class="timeline">${rows}</ol></section>`;
 }
 
 function journalPanel(s) {
   const rows = [...s.events].reverse().map(e => e.kind === "checkpoint"
-    ? `<li><span>${esc(when(e.ts))}</span><span class="cp">${esc(STAGES[e.checkpoint] || e.checkpoint)} · ${e.direction === "in" ? "от потока" : "ответ"}</span><span>${esc(e.text)}</span></li>`
-    : `<li class="note"><span>${esc(when(e.ts))}</span><span>заметка</span><span>${esc(e.text)}</span></li>`).join("");
+    ? `<li><span class="muted">${esc(when(e.ts))}</span><div><span class="cp">${esc(STAGES[e.checkpoint] || e.checkpoint)} · ${e.direction === "in" ? "от потока" : "ответ"}</span><div>${esc(e.text)}</div></div></li>`
+    : `<li class="note"><span>${esc(when(e.ts))}</span><div>${esc(e.text)}</div></li>`).join("");
   return `<section class="panel"><div class="panel-head"><h2>Журнал</h2><span class="count">${s.events.length}</span></div>
     <div class="panel-body"><ul class="log">${rows}</ul></div></section>`;
 }
 
 function taskView(s) {
-  const d = s.derived;
-  const meta = [statusBadge(s), `<span class="muted">${miniStage(s)}</span>`,
-    `<span class="muted">обновлено ${esc(ago(s.last_ts))}</span>`].join("");
   const err = s.error ? `<div class="error">${esc(s.error)}</div>` : "";
+  const idle = s.closed ? "" : `<section class="panel"><div class="panel-body muted">Сейчас оркестратор ничего у тебя по этой задаче не спрашивает.</div></section>`;
   return `<a class="back" href="#/">← Все задачи</a>
-    <div class="page-head"><div><div class="id">${esc(s.id)}</div><h1 class="big">${esc(titleOf(s))}</h1>
-      <div class="head-meta">${meta}</div>${err}</div>${linkButtons(s)}</div>
-    ${s.owner_asks.length ? askPanel("s:" + s.id, s.owner_asks, s.ask || {}, sessionOf(s.orchestrator), s.id) : ""}
-    ${contourPanel(s)}${stagesPanel(s)}${journalPanel(s)}`;
+    <header class="task-head"><div class="task-head-top"><span class="id">${esc(s.id)}</span>${statusBadge(s)}
+      <span class="muted">обновлено ${esc(ago(s.last_ts))}</span></div>
+      <h1 class="big">${esc(titleOf(s))}</h1>${err}</header>
+    <div class="task-layout">
+      <div class="task-main">${s.owner_asks.length ? askPanel("s:" + s.id, s.owner_asks, s.ask || {}, sessionOf(s.orchestrator), s.id) : idle}${journalPanel(s)}</div>
+      <aside class="task-side">${linksPanel(s)}${contourPanel(s)}${stagesPanel(s)}</aside>
+    </div>`;
 }
 
 function generalView(g) {
   return `<a class="back" href="#/">← Все задачи</a>
-    <div class="page-head"><div><div class="id">вопрос без задачи</div><h1 class="big">${inline(g.item)}</h1></div></div>
-    ${askPanel("g:" + g.id, [g.item], g.ask || {}, sessionOf(g.orchestrator), "")}`;
+    <header class="task-head"><div class="task-head-top"><span class="id">вопрос без задачи</span><span class="badge you dot">Ждёт тебя</span></div>
+      <h1 class="big">${inline(g.item)}</h1></header>
+    <div class="task-layout one">${askPanel("g:" + g.id, [g.item], g.ask || {}, sessionOf(g.orchestrator), "")}</div>`;
 }
 
 function homeView() {
   const d = last;
   const openS = d.streams.filter(s => !s.closed), closedS = d.streams.filter(s => s.closed);
-  const waiting = openS.filter(s => s.owner_asks.length);
-  const nAsks = waiting.length + d.general_asks.length;
-  const askRows = waiting.map(s => taskRow(s, true)).join("") +
-    d.general_asks.map(g => `<div class="trow" data-href="#/ask/${esc(encodeURIComponent(g.id))}">
-      <div><div class="trow-top"><span class="id">без задачи</span></div>
-      <div class="trow-title">${inline(g.item)}</div>
-      <div class="trow-meta"><span>спросил ${esc(ago((g.ask && g.ask.origin || {}).ts))}</span></div></div>
-      <span class="open-btn">Открыть</span></div>`).join("");
-  const others = openS.filter(s => !s.owner_asks.length);
-  const shown = showClosed ? others.concat(closedS) : others;
-  const rows = shown.map(s => taskRow(s, false)).join("");
+  const nAsks = openS.filter(s => s.owner_asks.length).length + d.general_asks.length;
+  const shown = showClosed ? openS.concat(closedS) : openS;
+  const general = d.general_asks.map(g => `<tr class="row" data-href="#/ask/${esc(encodeURIComponent(g.id))}">
+      <td class="col-task"><div class="id">без задачи</div><div class="task-title">${inline(g.item)}</div></td>
+      <td></td><td><span class="badge you dot">Ждёт тебя</span></td><td class="col-links"></td>
+      <td class="col-when">${esc(ago((g.ask && g.ask.origin || {}).ts))}</td></tr>`).join("");
+  const row = s => `<tr class="row" data-href="#/task/${esc(encodeURIComponent(s.id))}">
+      <td class="col-task"><div class="id">${esc(s.id)}</div><div class="task-title">${esc(titleOf(s))}</div>
+        ${s.owner_asks.length ? `<div class="row-ask">${s.owner_asks.map(inline).join(" · ")}</div>` : ""}</td>
+      <td>${stage(s)}</td><td>${statusBadge(s)}</td><td class="col-links">${linksOf(s)}</td>
+      <td class="col-when">${esc(ago(s.last_ts))}</td></tr>`;
+  const waitingRows = shown.filter(s => s.owner_asks.length).map(row).join("");
+  const rows = shown.filter(s => !s.owner_asks.length).map(row).join("");
   const orch = d.orchestrators.map(o => `<div class="panel-body"><b>${esc(o.name)}</b> <span class="muted">· ${esc(ago(o.message_ts))}</span>
       ${o.error ? `<div class="error">${esc(o.error)}</div>` : `<div class="sub">${inline(o.status_line || "нет строки статуса")}</div>`}
       <div style="margin-top:8px">${det("orch:" + o.name, "Последнее сообщение", `<div class="quote">${md(o.message)}</div>`)}</div></div>`).join("");
   const replies = [...(d.replies || [])].reverse().map(r =>
-    `<li class="${r.ok ? "" : "note"}"><span>${esc(when(r.ts))}</span><span>${r.ok ? "доставлено" : "не доставлено"}</span><span>${esc(r.text)}${r.error ? " — " + esc(r.error) : ""}</span></li>`).join("");
+    `<li class="${r.ok ? "" : "note"}"><span>${esc(when(r.ts))}</span><div>${r.ok ? "" : "не доставлено: "}${esc(r.text)}${r.error ? " — " + esc(r.error) : ""}</div></li>`).join("");
   return `<div class="page-head"><div><h1>Задачи оркестратора</h1><div class="sub" id="sub"></div></div>
-      <div class="stats"><span class="stat"><b>${nAsks}</b>ждут тебя</span><span class="stat"><b>${others.length}</b>в работе</span><span class="stat"><b>${closedS.length}</b>закрыто</span></div></div>
-    <section class="panel"><div class="panel-head"><h2>Ждут твоего ответа</h2><span class="count">${nAsks}</span></div>
-      ${askRows || `<div class="empty">Сейчас никто не ждёт твоего ответа.</div>`}</section>
-    <section class="panel"><div class="panel-head"><h2>${showClosed ? "Остальные и закрытые" : "Остальные в работе"}</h2><span class="count">${shown.length}</span>
+      <div class="stats"><span class="stat"><b>${nAsks}</b>ждут тебя</span><span class="stat"><b>${openS.length}</b>в работе</span><span class="stat"><b>${closedS.length}</b>закрыто</span></div></div>
+    <section class="panel"><div class="panel-head"><h2>Задачи</h2><span class="count">${shown.length + d.general_asks.length}</span>
       <span class="right"><button class="toggle" id="toggle-closed" type="button">${showClosed ? "Скрыть закрытые" : `Показать закрытые (${closedS.length})`}</button></span></div>
-      <div>${rows || `<div class="empty">Все задачи в работе ждут тебя.</div>`}</div></section>
+      <table class="tasks"><thead><tr><th class="col-task">Задача</th><th>Этап</th><th>Статус</th><th class="col-links">Ссылки</th><th class="col-when">Обновлено</th></tr></thead>
+      <tbody>${waitingRows + general + rows || `<tr><td colspan="5" class="empty">Нет задач.</td></tr>`}</tbody></table></section>
     <section class="panel"><div class="panel-head"><h2>Оркестратор</h2></div>${orch}</section>
     <section class="panel"><div class="panel-head"><h2>Отправленные ответы</h2></div>
       <div class="panel-body">${replies ? `<ul class="log">${replies}</ul>` : `<span class="muted">Пока ничего.</span>`}</div></section>`;
