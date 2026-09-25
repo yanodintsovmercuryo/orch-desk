@@ -121,6 +121,10 @@ def build_orchestrators(root=None):
     return out
 
 
+def general_asks(orch_name):
+    return [g["item"] for g in build()["general_asks"] if g["orchestrator"] == orch_name]
+
+
 def current_asks(orch_name, stream_id):
     """Owner asks naming the stream in the orchestrator's latest waiting line."""
     for o in build()["orchestrators"]:

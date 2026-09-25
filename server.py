@@ -58,6 +58,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 data = view.build()
                 data["replies"] = deliver.recent(REPLIES, 20)
+                data["ui_version"] = int(os.path.getmtime(os.path.join(WEB, "index.html")))
                 return self._send(200, data)
             except Exception:
                 return self._send(500, {"error": traceback.format_exc(limit=5)})
@@ -105,6 +106,12 @@ class Handler(BaseHTTPRequestHandler):
             asks = [a for a in (body.get("asks") or []) if isinstance(a, str)][:5]
             if stream and not asks:
                 asks = view.current_asks(orch["name"], stream)
+            if not stream and not asks:
+                # An older page sends no question; with one open question there is no ambiguity.
+                general = view.general_asks(orch["name"])
+                if len(general) != 1:
+                    return self._send(400, {"error": "не понятно, на какой вопрос ответ — обнови страницу"})
+                asks = general
             record = deliver.send(session_id, stream, text, REPLIES, images, asks)
             return self._send(200 if record.get("ok") else 502, record)
         except ValueError as e:

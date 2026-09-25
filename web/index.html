@@ -780,7 +780,7 @@ function safeRender() {
   }
 }
 
-let pointerDown = false, dialogOpen = false;
+let pointerDown = false, dialogOpen = false, uiVersion = null;
 
 function dialog({title, body = "", ok = "OK", cancel = "Отмена", danger = false}) {
   return new Promise(resolve => {
@@ -823,6 +823,9 @@ async function refresh() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || res.status);
     updatedAt = new Date();
+    // The page was updated on disk: reload once nothing is being typed; drafts survive in sessionStorage.
+    if (uiVersion === null) uiVersion = data.ui_version;
+    else if (data.ui_version && data.ui_version !== uiVersion && !editing()) { saveDrafts(); location.reload(); return; }
     const key = JSON.stringify(data);
     last = data;
     // Re-render only on a real change, so open blocks and scroll stay put.
@@ -851,9 +854,14 @@ document.addEventListener("toggle", e => {
   if (!k) return;
   e.target.open ? openDetails.add(k) : openDetails.delete(k);
 }, true);
+function saveDrafts() {
+  try { sessionStorage.setItem("desk-drafts", JSON.stringify([...drafts])); } catch (e) { /* storage may be unavailable */ }
+}
+try { JSON.parse(sessionStorage.getItem("desk-drafts") || "[]").forEach(([k, v]) => drafts.set(k, v)); } catch (e) { /* ignore */ }
+
 document.addEventListener("input", e => {
   const f = e.target.closest("form.reply");
-  if (f) drafts.set(f.dataset.key, e.target.value);
+  if (f) { drafts.set(f.dataset.key, e.target.value); saveDrafts(); }
 });
 document.addEventListener("focusout", () => setTimeout(() => {
   flushRender();
@@ -940,7 +948,7 @@ async function sendReply(f, quick) {
     if (res.ok && r.ok) {
       note("", "Доставлено оркестратору · " + new Date().toLocaleTimeString("ru-RU"));
       if (!quick) {
-        drafts.delete(f.dataset.key); ta.value = "";
+        drafts.delete(f.dataset.key); saveDrafts(); ta.value = "";
         list.forEach(a => URL.revokeObjectURL(a.url)); attachments.delete(f.dataset.key); redrawThumbs(f);
       }
     } else {

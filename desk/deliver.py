@@ -93,11 +93,11 @@ def format_reply(stream, text, images=(), asks=()):
 
 def send(session_id, stream, text, log_path, images=(), asks=()):
     if not text.strip() and not images:
-        raise ValueError("empty reply")
+        raise ValueError("пустой ответ")
     if not stream and not any(_one_line(a) for a in asks):
-        raise ValueError("a reply without a task must name the question it answers")
+        raise ValueError("ответ без задачи должен называть вопрос — обнови страницу")
     if len(text) > MAX_LEN:
-        raise ValueError(f"reply longer than {MAX_LEN} characters")
+        raise ValueError(f"ответ длиннее {MAX_LEN} символов")
     line = format_reply(stream, text, images, asks)
     record = {"ts": datetime.now().astimezone().isoformat(timespec="seconds"), "stream": stream, "text": line,
               "images": list(images)}
