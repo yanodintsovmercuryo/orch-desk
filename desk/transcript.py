@@ -100,13 +100,18 @@ def ask_thread(messages, matches, about=None, updates_limit=3):
     Walks turn-ending messages back from the newest while their waiting line still
     carries a matching item; the oldest of that run is where the question was put.
     """
-    origin, run = None, []
+    origin, run, misses = None, [], 0
     for text, ts in messages:
         line = status_of(text)
         if not line:
             continue
         if not any(matches(i) for i in owner_items(line)):
-            break
+            # One turn may fold the ask into "…and the questions above"; two in a row end the run.
+            misses += 1
+            if misses > 1:
+                break
+            continue
+        misses = 0
         origin = (text, ts)
         run.append((text, ts))
     if not origin:
@@ -144,6 +149,30 @@ def owner_items(status_line):
 
 def refs(text):
     return set(STREAM_RE.findall(text)), set(PR_RE.findall(text))
+
+
+WORD_RE = re.compile(r"[\w-]{4,}", re.UNICODE)
+
+
+def stems(text):
+    # Six-letter stems absorb Russian inflection: «пакетное» and «пакетного» meet.
+    return {w.lower()[:6] for w in WORD_RE.findall(text or "") if not w.isdigit()}
+
+
+def similar(a, b, share=0.5):
+    sa, sb = stems(a), stems(b)
+    return bool(sa and sb) and len(sa & sb) / min(len(sa), len(sb)) >= share
+
+
+def paragraphs_matching(message, item):
+    """Paragraphs of the message that share words with an ask, status line excluded."""
+    want = stems(item)
+    out = []
+    for para in re.split(r"\n\s*\n", message):
+        para = "\n".join(l for l in para.strip().splitlines() if not STATUS_RE.search(l)).strip()
+        if para and len(stems(para) & want) >= min(2, len(want)):
+            out.append(para)
+    return out
 
 
 def paragraphs_about(message, stream_id, pr_numbers):

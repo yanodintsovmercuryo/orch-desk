@@ -554,7 +554,7 @@ function generalView(g) {
   return `<a class="back" href="#/">← Все задачи</a>
     <header class="task-head"><div class="task-head-top"><span class="id">вопрос без задачи</span><span class="badge you dot">Ждёт тебя</span></div>
       <h1 class="big">${inline(g.item)}</h1></header>
-    <div class="task-layout one">${askPanel("g:" + g.id, [g.item], g.ask || {}, sessionOf(g.orchestrator), "", replyState("", g.orchestrator, true))}</div>`;
+    <div class="task-layout one">${askPanel("g:" + g.id, [g.item], g.ask || {}, sessionOf(g.orchestrator), "", replyState("", g.orchestrator, true, g.item))}</div>`;
 }
 
 const ICONS = {
@@ -639,8 +639,20 @@ function orchOf(name) {
 
 // What happened to the owner's latest reply on a stream: pending, again (a turn ended and the
 // ask is still there), resolved (the ask left the waiting line), or nothing to show.
-function replyState(streamId, orchName, asked) {
-  const r = [...(last.replies || [])].reverse().find(x => x.ok && x.stream === streamId && x.kind !== "note");
+const stemsOf = t => new Set((String(t || "").match(/[\p{L}\p{N}_-]{4,}/gu) || []).filter(w => !/^\d+$/.test(w)).map(w => w.toLowerCase().slice(0, 6)));
+
+function similar(a, b) {
+  const sa = stemsOf(a), sb = stemsOf(b);
+  if (!sa.size || !sb.size) return false;
+  let n = 0;
+  sa.forEach(w => { if (sb.has(w)) n++; });
+  return n / Math.min(sa.size, sb.size) >= 0.5;
+}
+
+// item: for a general ask, only a reply naming that same question counts.
+function replyState(streamId, orchName, asked, item) {
+  const r = [...(last.replies || [])].reverse().find(x => x.ok && x.stream === streamId && x.kind !== "note"
+    && (!item || (x.asks || []).some(a => similar(a, item)) || (!x.asks && similar(x.text, item))));
   if (!r) return null;
   const sent = tsMs(r.ts), o = orchOf(orchName), turn = tsMs(o.message_ts);
   const busy = o.session_status === "busy";
@@ -981,7 +993,7 @@ async function sendReply(f, quick) {
 function anyPending() {
   if (!last) return false;
   return last.streams.some(s => (streamReply(s) || {}).kind === "pending")
-    || last.general_asks.some(g => (replyState("", g.orchestrator, true) || {}).kind === "pending");
+    || last.general_asks.some(g => (replyState("", g.orchestrator, true, g.item) || {}).kind === "pending");
 }
 
 // Poll fast while a reply is on its way, so the unblock is seen as it happens.

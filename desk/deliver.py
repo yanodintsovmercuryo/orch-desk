@@ -104,7 +104,7 @@ def send(session_id, stream, text, log_path, images=(), asks=(), kind="reply"):
         raise ValueError(f"ответ длиннее {MAX_LEN} символов")
     line = format_reply(stream, text, images, asks, kind)
     record = {"ts": datetime.now().astimezone().isoformat(timespec="seconds"), "stream": stream, "text": line,
-              "images": list(images), "kind": kind}
+              "images": list(images), "kind": kind, "asks": [_one_line(a) for a in asks]}
     try:
         target = resolve(session_id)
         record["target"] = target

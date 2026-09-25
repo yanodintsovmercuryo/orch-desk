@@ -94,12 +94,15 @@ def build(root=None):
             if item in matched:
                 continue
             ids = transcript.refs(item)[0]
-            same = (lambda i, ids=ids: bool(transcript.refs(i)[0] & ids)) if ids else (lambda i, item=item: i == item)
+            # The wording of a general ask drifts turn to turn; match it by the tasks it names or its words.
+            same = (lambda i, ids=ids: bool(transcript.refs(i)[0] & ids)) if ids \
+                else (lambda i, item=item: transcript.similar(i, item))
             out["general_asks"].append({
                 # Keyed by the tasks it names when it names any: the wording shifts turn to turn.
                 "id": "g-" + hashlib.sha1((" ".join(sorted(ids)) or item).encode()).hexdigest()[:8],
                 "orchestrator": o["name"], "item": item,
-                "ask": transcript.ask_thread(by_orch.get(o["name"], []), same),
+                "ask": _general_thread(transcript.ask_thread(
+                    by_orch.get(o["name"], []), same, lambda t, item=item: transcript.paragraphs_matching(t, item)), item),
             })
 
     open_rows = sorted((r for r in rows if not r["closed"]),
@@ -119,6 +122,16 @@ def build_orchestrators(root=None):
             if os.path.isdir(os.path.join(orch["dir"], "streams")) else []
         out.append({"name": orch["name"], "session_id": orch["registry"].get("session_id", ""), "streams": sids})
     return out
+
+
+def _general_thread(thread, item):
+    # A general ask is usually one line of a longer turn: show the paragraphs about it, keep the rest.
+    origin = thread.get("origin")
+    if origin:
+        paras = transcript.paragraphs_matching(origin["text"], item)
+        if paras:
+            origin["full"], origin["text"] = origin["text"], "\n\n".join(paras)
+    return thread
 
 
 def general_asks(orch_name):

@@ -129,6 +129,7 @@ class AskThreadTest(unittest.TestCase):
             "carry only\n\nwaiting: ты — вариант A по MER-1 · t",
             "MER-1: options A, B\n\nOption A details\n\nwaiting: ты — вариант A по MER-1 · t",
             "before the ask\n\nwaiting: ты — something else · t",
+            "still before\n\nwaiting: ты — another thing · t",
             "old MER-1 talk\n\nwaiting: ты — вариант A по MER-1 · t",
         )
         about = lambda t: transcript.paragraphs_about(t, "MER-1", set())
@@ -136,6 +137,20 @@ class AskThreadTest(unittest.TestCase):
         self.assertEqual(thread["origin"]["ts"], "T2")
         self.assertIn("Option A details", thread["origin"]["text"])
         self.assertEqual([u["ts"] for u in thread["updates"]], ["T0"])
+
+    def test_one_folded_turn_does_not_end_the_run(self):
+        msgs = self.msgs(
+            "now\n\nwaiting: ты — вариант A по MER-1 · t",
+            "folded\n\nwaiting: ты — и вопросы выше · t",
+            "MER-1: the options\n\nwaiting: ты — вариант A по MER-1 · t",
+        )
+        about = lambda t: transcript.paragraphs_about(t, "MER-1", set())
+        self.assertEqual(transcript.ask_thread(msgs, lambda i: "MER-1" in i, about)["origin"]["ts"], "T2")
+
+    def test_general_ask_matches_by_shared_words(self):
+        self.assertTrue(transcript.similar("какие задачи go-libs завести из 11",
+                                           "права на пакетное создание, какие задачи go-libs заводить"))
+        self.assertFalse(transcript.similar("вид MER-3226 на 20469", "какие задачи go-libs заводить"))
 
     def test_no_ask_no_thread(self):
         self.assertEqual(transcript.ask_thread(self.msgs("x\n\nwaiting: ты — y · t"), lambda i: "MER-1" in i), {})
