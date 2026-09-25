@@ -409,7 +409,7 @@ function attachList(key) {
 
 function replyForm(key, sessionId, stream, asks, kind = "reply") {
   const rc = receipts.get(key) || {};
-  const hint = kind === "note" ? "Что поправить: файл, решение, подход. Картинку можно вставить ⌘V"
+  const hint = kind === "note" ? "Что заметил: файл, решение, подход. Картинку можно вставить ⌘V"
     : `Ответ оркестратору${stream ? " по " + esc(stream) : ""}. Картинку можно вставить ⌘V или перетащить`;
   return `<form class="reply stack" data-key="${esc(key)}" data-session="${esc(sessionId)}" data-stream="${esc(stream)}" data-kind="${kind}" data-asks="${esc(JSON.stringify(asks || []))}">
     <textarea name="text" placeholder="${hint}">${esc(drafts.get(key) || "")}</textarea>
@@ -466,8 +466,8 @@ function askPanel(key, items, ask, session, stream, rs) {
 
 function notePanel(s) {
   if (s.closed) return "";
-  return `<section class="panel"><div class="panel-head"><h2>${icon("pen")}Поправка</h2>
-      <span class="right muted small">оркестратор передаст её потоку</span></div>
+  return `<section class="panel"><div class="panel-head"><h2>${icon("pen")}Комментарий</h2>
+      <span class="right muted small">оркестратор передаст его потоку</span></div>
     <div class="panel-body">${replyForm("n:" + s.id, sessionOf(s.orchestrator), s.id, [], "note")}</div></section>`;
 }
 
@@ -955,7 +955,7 @@ async function sendReply(f, quick) {
   const preview = (asks.length ? `<p class="muted">На вопрос: ${asks.map(a => `«${inline(a)}»`).join("; ")}</p>` : "") + (text ? `<div class="quote">${esc(text).replace(/\n/g, "<br>")}</div>` : "") +
     (list.length ? `<div class="thumbs">${list.map(a => `<span class="thumb"><img src="${esc(a.url)}" alt=""></span>`).join("")}</div>` : "");
   const kind = f.dataset.kind || "reply";
-  const title = kind === "note" ? `Поправка · ${f.dataset.stream}` : `Ответ оркестратору${f.dataset.stream ? " · " + f.dataset.stream : ""}`;
+  const title = kind === "note" ? `Комментарий · ${f.dataset.stream}` : `Ответ оркестратору${f.dataset.stream ? " · " + f.dataset.stream : ""}`;
   if (!await dialog({title, body: preview, ok: "Отправить"})) return;
   btn.disabled = true; note("", "Отправляю…");
   try {

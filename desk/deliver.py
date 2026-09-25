@@ -87,7 +87,7 @@ def format_reply(stream, text, images=(), asks=(), kind="reply"):
     about = "; ".join(f"«{_one_line(a)[:300]}»" for a in asks if _one_line(a))
     head = "[desk]" + (f" {stream}" if stream else "")
     if kind == "note":
-        return f"{head} · поправка: {body}"
+        return f"{head} · комментарий: {body}"
     if about:
         head += (" · на " if stream else " на ") + about
     return f"{head}: {body}"
@@ -97,7 +97,7 @@ def send(session_id, stream, text, log_path, images=(), asks=(), kind="reply"):
     if not text.strip() and not images:
         raise ValueError("пустой ответ")
     if kind == "note" and not stream:
-        raise ValueError("поправка должна относиться к задаче")
+        raise ValueError("комментарий должен относиться к задаче")
     if kind != "note" and not stream and not any(_one_line(a) for a in asks):
         raise ValueError("ответ без задачи должен называть вопрос — обнови страницу")
     if len(text) > MAX_LEN:
