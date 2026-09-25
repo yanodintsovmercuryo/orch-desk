@@ -441,7 +441,9 @@ function md(text) {
       const rows = [];
       while (i < lines.length && lines[i].trim().startsWith("|")) rows.push(lines[i++]);
       const cells = r => r.trim().replace(/^\||\|$/g, "").split("|").map(c => c.trim());
-      const [headRow, ...rest] = rows.filter(r => !/^\s*\|[\s:|-]+\|\s*$/.test(r));
+      const [headRow, ...rest] = rows.filter(r => !/^\s*\|[\s:|-]+\|?\s*$/.test(r));
+      // A table still streaming in may have no header row yet.
+      if (!headRow) continue;
       out.push("<table><tr>" + cells(headRow).map(c => `<th>${inline(c)}</th>`).join("") + "</tr>" +
         rest.map(r => "<tr>" + cells(r).map(c => `<td>${inline(c)}</td>`).join("") + "</tr>").join("") + "</table>");
       continue;
@@ -606,7 +608,7 @@ function promptPanel(s) {
     </div></section>`;
 }
 
-const advisorState = new Map(), advisorModel = new Map();
+const advisorState = new Map(), advisorModel = new Map(), advisorWasRunning = new Set();
 let advisorTimer = 0;
 
 function advisorBody(id) {
@@ -645,16 +647,20 @@ async function loadAdvisor(id) {
     const data = await res.json();
     if (res.ok) advisorState.set(id, data);
   } catch (e) { /* retried on the next tick */ }
+  const running = !!(advisorState.get(id) || {}).running;
+  // Keep polling while an answer runs, whatever happens to the drawing below.
+  if (running) advisorTimer = setTimeout(() => loadAdvisor(id), 1000);
   const panel = document.getElementById("advisor-panel");
   if (!panel || panel.dataset.stream !== id) return;
-  const running = !!(advisorState.get(id) || {}).running;
-  document.getElementById("advisor-body").innerHTML = advisorBody(id);
-  panel.querySelector("button[type=submit]").disabled = running;
-  panel.querySelector("button[type=submit]").textContent = running ? "Отвечает…" : "Спросить";
-  panel.querySelector("textarea").disabled = running;
-  if (running) advisorTimer = setTimeout(() => loadAdvisor(id), 1000);
-  else if (panel.dataset.wasRunning === "1") { panel.dataset.wasRunning = ""; safeRender(); }
-  if (running) panel.dataset.wasRunning = "1";
+  try {
+    document.getElementById("advisor-body").innerHTML = advisorBody(id);
+    const btn = panel.querySelector("button[type=submit]"), ta = panel.querySelector("textarea");
+    btn.disabled = running; btn.textContent = running ? "Отвечает…" : "Спросить"; ta.disabled = running;
+  } catch (e) {
+    document.getElementById("advisor-body").textContent = "Ошибка отрисовки ответа: " + e.message;
+  }
+  if (!running && advisorWasRunning.has(id)) { advisorWasRunning.delete(id); safeRender(); }
+  if (running) advisorWasRunning.add(id);
 }
 
 function notePanel(s) {
