@@ -286,16 +286,19 @@ a.ref { color: var(--text-primary); text-decoration-style: dotted; }
 
 a.shots { display: inline-flex; align-items: center; gap: 5px; color: var(--text-primary); text-decoration-style: dotted; word-break: break-all; }
 a.shots .ico { width: 13px; height: 13px; flex: none; }
-.viewer { position: fixed; inset: 0; z-index: 1100; background: rgba(8, 8, 8, .97); display: grid; grid-template-rows: auto 1fr; animation: fade .12s ease; }
-.viewer-bar { display: flex; align-items: center; gap: var(--space-3); padding: 12px 20px; font-size: var(--text-sm); border-bottom: 1px solid var(--border); background: var(--surface-card); }
-.viewer-bar .right { margin-left: auto; display: flex; gap: var(--space-2); }
+.viewer { position: fixed; inset: 0; z-index: 1100; background: #0b0b0b; display: grid; grid-template-rows: auto 1fr; animation: fade .12s ease; }
+.viewer-bar { display: flex; align-items: center; gap: var(--space-3); padding: 10px 20px; font-size: var(--text-sm); border-bottom: 1px solid var(--border); background: var(--surface-card); }
+.viewer-bar .right { margin-left: auto; display: flex; gap: var(--space-2); align-items: center; }
 .viewer-bar button { display: inline-flex; align-items: center; gap: 6px; }
 .viewer-bar button .ico { width: 14px; height: 14px; }
-.viewer-body { display: grid; place-items: center; padding: 24px 72px; min-height: 0; }
-.viewer-body.pair { grid-template-columns: 1fr 1fr; gap: 20px; }
-.viewer-body figure { margin: 0; display: grid; grid-template-rows: auto 1fr; gap: 8px; height: 100%; min-height: 0; width: 100%; }
+.zoom { display: inline-flex; gap: 4px; margin-right: var(--space-2); }
+.zoom button { min-width: 36px; justify-content: center; }
+.viewer-body { display: grid; padding: 16px 72px 0; min-height: 0; }
+.viewer-body.pair { grid-template-columns: 1fr 1fr; gap: 16px; }
+.viewer-body figure { margin: 0; display: grid; grid-template-rows: auto 1fr; gap: 8px; min-height: 0; min-width: 0; }
 .viewer-body figcaption { font-size: var(--text-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; text-align: center; }
-.viewer-body img { max-width: 100%; max-height: calc(100vh - 140px); object-fit: contain; justify-self: center; border: 1px solid var(--border-strong); border-radius: var(--r-sm); background: #fff; }
+.shot-scroll { overflow: auto; height: calc(100vh - 100px); border: 1px solid var(--border-strong); border-radius: var(--r-sm); background: #fff; }
+.shot-scroll img { display: block; margin: 0 auto; cursor: zoom-in; }
 .viewer-nav { position: fixed; top: 50%; transform: translateY(-50%); width: 44px; height: 64px; font-size: 28px; line-height: 1; border-radius: var(--r); background: var(--surface-card); }
 .viewer-nav.prev { left: 14px; }
 .viewer-nav.next { right: 14px; }
@@ -904,16 +907,55 @@ function drawViewer() {
   dialogOpen = true;
   const it = viewer.items[viewer.i], n = viewer.items.length;
   const pane = (label, path) => `<figure><figcaption>${label}</figcaption>
-    <img src="/api/file?path=${encodeURIComponent(path)}" alt="${esc(label)}"></figure>`;
+    <div class="shot-scroll"><img src="/api/file?path=${encodeURIComponent(path)}" alt="${esc(label)}" data-zoom-img></div></figure>`;
   const body = it.before && it.after ? pane("было", it.before) + pane("стало", it.after)
     : pane(it.before ? "было" : "стало", it.after || it.before);
   root.innerHTML = `<div class="viewer" role="dialog" aria-modal="true">
     <div class="viewer-bar"><b>${esc(it.name)}</b><span class="muted">${viewer.i + 1} / ${n} · ${esc(viewer.folder.replace(/^\/Users\/[^/]+/, "~"))}</span>
-      <span class="right"><button type="button" data-v="reveal">${icon("folder")}Показать в Finder</button>
-      <button type="button" data-v="close" title="Закрыть (Esc)">×</button></span></div>
+      <span class="right">
+        <span class="zoom"><button type="button" data-v="out" title="Уменьшить (−)">−</button>
+          <button type="button" data-v="fit" title="По ширине (0)">${viewer.scale ? Math.round(viewer.scale * 100) + "%" : "по ширине"}</button>
+          <button type="button" data-v="in" title="Увеличить (+)">+</button></span>
+        <button type="button" data-v="reveal">${icon("folder")}Показать в Finder</button>
+        <button type="button" data-v="close" title="Закрыть (Esc)">×</button></span></div>
     <div class="viewer-body ${it.before && it.after ? "pair" : ""}">${body}</div>
     <button type="button" class="viewer-nav prev" data-v="prev" ${n < 2 ? "hidden" : ""}>‹</button>
     <button type="button" class="viewer-nav next" data-v="next" ${n < 2 ? "hidden" : ""}>›</button></div>`;
+  const imgs = [...root.querySelectorAll("[data-zoom-img]")];
+  imgs.forEach(img => img.complete ? applyZoom() : img.addEventListener("load", applyZoom, {once: true}));
+  syncScroll([...root.querySelectorAll(".shot-scroll")]);
+}
+
+// null scale fits the column width; a number is a multiple of the image's own pixel width.
+function applyZoom() {
+  document.querySelectorAll("#viewer-root [data-zoom-img]").forEach(img => {
+    img.style.width = viewer && viewer.scale ? `${Math.round(img.naturalWidth * viewer.scale)}px` : "100%";
+    img.style.maxWidth = viewer && viewer.scale ? "none" : "100%";
+  });
+}
+
+function zoomBy(f) {
+  const img = document.querySelector("#viewer-root [data-zoom-img]");
+  if (!img || !img.naturalWidth) return;
+  const now = viewer.scale || img.clientWidth / img.naturalWidth;
+  viewer.scale = Math.min(4, Math.max(0.1, now * f));
+  drawViewer();
+}
+
+function syncScroll(panes) {
+  let lock = false;
+  panes.forEach(p => p.addEventListener("scroll", () => {
+    if (lock) return;
+    lock = true;
+    const ry = p.scrollTop / Math.max(1, p.scrollHeight - p.clientHeight);
+    const rx = p.scrollLeft / Math.max(1, p.scrollWidth - p.clientWidth);
+    panes.forEach(o => {
+      if (o === p) return;
+      o.scrollTop = ry * (o.scrollHeight - o.clientHeight);
+      o.scrollLeft = rx * (o.scrollWidth - o.clientWidth);
+    });
+    requestAnimationFrame(() => { lock = false; });
+  }));
 }
 
 function stepViewer(d) {
@@ -924,7 +966,10 @@ function stepViewer(d) {
 
 document.addEventListener("keydown", e => {
   if (!viewer) return;
-  if (e.key === "ArrowLeft") { e.preventDefault(); stepViewer(-1); }
+  if (e.key === "+" || e.key === "=") { e.preventDefault(); zoomBy(1.25); }
+  else if (e.key === "-") { e.preventDefault(); zoomBy(0.8); }
+  else if (e.key === "0") { e.preventDefault(); viewer.scale = null; drawViewer(); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); stepViewer(-1); }
   else if (e.key === "ArrowRight") { e.preventDefault(); stepViewer(1); }
   else if (e.key === "Escape") { e.preventDefault(); viewer = null; drawViewer(); flushRender(); }
 }, true);
@@ -932,11 +977,16 @@ document.addEventListener("keydown", e => {
 document.addEventListener("click", async e => {
   const link = e.target.closest("[data-shots]");
   if (link) { e.preventDefault(); e.stopPropagation(); openShots(link.dataset.shots); return; }
+  const zimg = e.target.closest("[data-zoom-img]");
+  if (zimg && viewer) { viewer.scale = viewer.scale ? null : 1; drawViewer(); return; }
   const v = e.target.closest("[data-v]");
   if (!v && e.target.classList && e.target.classList.contains("viewer")) { viewer = null; drawViewer(); flushRender(); return; }
   if (!v) return;
   const act = v.dataset.v;
-  if (act === "prev") stepViewer(-1);
+  if (act === "in") zoomBy(1.25);
+  else if (act === "out") zoomBy(0.8);
+  else if (act === "fit") { viewer.scale = null; drawViewer(); }
+  else if (act === "prev") stepViewer(-1);
   else if (act === "next") stepViewer(1);
   else if (act === "close") { viewer = null; drawViewer(); flushRender(); }
   else if (act === "reveal") {
