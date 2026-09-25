@@ -9,7 +9,7 @@ import threading
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from desk import deliver, uploads, view, workspace
+from desk import deliver, terminal, uploads, view, workspace
 
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("DESK_PORT", "8800"))
@@ -97,6 +97,18 @@ class Handler(BaseHTTPRequestHandler):
                 if self.path.endswith("/up"):
                     workspace.app_up(repo, stream)
                 return self._send(200, workspace.status(repo, force=self.path.endswith("/refresh")))
+            if self.path == "/api/terminal":
+                stream = body.get("stream", "")
+                repo = view.stream_repo(stream) if stream.replace("-", "").isalnum() else ""
+                if not repo:
+                    return self._send(400, {"error": "unknown stream"})
+                key, text = body.get("key"), body.get("text")
+                if text is not None and (not str(text).strip() or len(str(text)) > deliver.MAX_LEN):
+                    return self._send(400, {"error": "пустой или слишком длинный текст"})
+                result = terminal.answer(repo, key=str(key) if key else None, text=text)
+                deliver.log(REPLIES, {"stream": stream, "kind": "terminal", "ok": True,
+                                      "text": f"[терминал] {stream}: «{result['picked']}»" + (f" · {text}" if text else "")})
+                return self._send(200, result)
             if self.path != "/api/reply":
                 return self._send(404, {"error": "not found"})
             session_id, stream, text = body.get("session_id", ""), body.get("stream", ""), body.get("text", "")

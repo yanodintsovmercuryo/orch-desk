@@ -5,7 +5,7 @@ import os
 import re
 from concurrent.futures import ThreadPoolExecutor
 
-from . import deliver, links, state, transcript, workspace
+from . import deliver, links, state, terminal, transcript, workspace
 
 CLOSED_LIMIT = 15
 
@@ -69,7 +69,9 @@ def build(root=None):
         contour = {} if closed else workspace.status(st.header.get("repository", ""))
         if contour.get("app_up"):
             contour["app_up"]["tail"] = workspace.log_tail(contour["app_up"]["log"])
+        prompt = None if closed else terminal.waiting_prompt(st.header.get("repository", ""))
         return {
+            "prompt": prompt,
             "workspace": contour,
             "id": st.id, "orchestrator": orch_name, "header": st.header, "derived": st.derived,
             "error": st.error, "progress": {"index": idx, "total": len(state.ORDERED), "intent_moved": moved},
@@ -106,7 +108,7 @@ def build(root=None):
             })
 
     open_rows = sorted((r for r in rows if not r["closed"]),
-                       key=lambda r: (not r["owner_asks"], _neg(r["last_ts"])))
+                       key=lambda r: (not (r["owner_asks"] or r["prompt"]), _neg(r["last_ts"])))
     closed_rows = sorted((r for r in rows if r["closed"]), key=lambda r: r["last_ts"], reverse=True)
     out["streams"] = open_rows + closed_rows[:CLOSED_LIMIT]
     out["checkpoints"] = state.ORDERED

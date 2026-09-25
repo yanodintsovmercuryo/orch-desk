@@ -121,6 +121,13 @@ def send(session_id, stream, text, log_path, images=(), asks=(), kind="reply"):
     return record
 
 
+def log(log_path, record):
+    record = {"ts": datetime.now().astimezone().isoformat(timespec="seconds"), **record}
+    with _log_lock, open(log_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return record
+
+
 def recent(log_path, limit=50):
     if not os.path.exists(log_path):
         return []

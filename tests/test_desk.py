@@ -3,7 +3,7 @@ import os
 import tempfile
 import unittest
 
-from desk import deliver, state, transcript, uploads, view
+from desk import deliver, state, terminal, transcript, uploads, view
 
 CHECKPOINTS = state.load_checkpoints(pattern="/nonexistent/*")
 
@@ -154,6 +154,34 @@ class AskThreadTest(unittest.TestCase):
 
     def test_no_ask_no_thread(self):
         self.assertEqual(transcript.ask_thread(self.msgs("x\n\nwaiting: ты — y · t"), lambda i: "MER-1" in i), {})
+
+
+SCREEN = """⏺ earlier output
+  waiting: orchestrator · reply
+──────────────────────────────────────────────
+ ☐ pre-publish
+│ Вы вставили ответ оркестратора без своего текста.
+│ Действовать по нему?
+❯ 1. Да, действуй по нему (Recommended)
+     Считаю вставку вашим словом: push.
+  2. Нет, жди прямого ответа
+     Жду прямого ответа.
+  3. Type something.
+──────────────────────────────────────────────
+  4. Chat about this
+Enter to select · ↑/↓ to navigate · Esc to cancel
+─────────────────────────────────────── MER-2914 ─""".splitlines()
+
+
+class TerminalPromptTest(unittest.TestCase):
+    def test_parses_question_options_and_hints(self):
+        p = terminal.parse_prompt(SCREEN)
+        self.assertEqual(p["question"][0], "pre-publish")
+        self.assertIn("Действовать по нему?", p["question"])
+        self.assertEqual([o["key"] for o in p["options"]], ["1", "2", "3", "4"])
+        self.assertEqual(p["options"][0]["label"], "Да, действуй по нему (Recommended)")
+        self.assertEqual(p["options"][0]["hint"], "Считаю вставку вашим словом: push.")
+        self.assertEqual(p["options"][2]["hint"], "")
 
 
 class ViewTest(unittest.TestCase):
