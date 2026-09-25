@@ -11,7 +11,7 @@ import traceback
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from desk import deliver, links, shots, source, terminal, uploads, view, workspace
+from desk import advisor, deliver, links, shots, source, state, terminal, uploads, view, workspace
 
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("DESK_PORT", "8800"))
@@ -67,6 +67,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, data)
             except Exception:
                 return self._send(500, {"error": traceback.format_exc(limit=5)})
+        if route == "/api/advisor":
+            query = urllib.parse.parse_qs(self.path.split("?", 1)[1] if "?" in self.path else "")
+            stream = (query.get("stream") or [""])[0]
+            if not stream.replace("-", "").isalnum():
+                return self._send(400, {"error": "unknown stream"})
+            return self._send(200, advisor.status(stream))
         if route == "/api/source":
             query = urllib.parse.parse_qs(self.path.split("?", 1)[1] if "?" in self.path else "")
             try:
@@ -120,6 +126,16 @@ class Handler(BaseHTTPRequestHandler):
                 if self.path.endswith("/up"):
                     workspace.app_up(repo, stream)
                 return self._send(200, workspace.status(repo, force=self.path.endswith("/refresh")))
+            if self.path in ("/api/advisor", "/api/advisor/reset"):
+                stream = body.get("stream", "")
+                row = next((r for r in view.build()["streams"] if r["id"] == stream), None)
+                if not row:
+                    return self._send(400, {"error": "unknown stream"})
+                if self.path.endswith("/reset"):
+                    return self._send(200, advisor.reset(stream))
+                sdir = os.path.join(state.state_root(), row["orchestrator"], "streams", stream)
+                return self._send(200, advisor.ask(stream, body.get("question", ""), body.get("model", "sonnet"),
+                                                   row, sdir, fresh=bool(body.get("fresh"))))
             if self.path == "/api/zed":
                 return self._send(200, source.open_in_zed(body.get("path", ""), int(body.get("line") or 0)))
             if self.path == "/api/reveal":

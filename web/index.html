@@ -314,6 +314,17 @@ pre.code .no { flex: none; width: 56px; padding-right: 16px; text-align: right; 
 pre.code .tx { white-space: pre; color: var(--text-primary); }
 .quote.doc { max-width: 900px; margin: 0 auto; font-size: var(--text-base); }
 
+.seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: var(--r); overflow: hidden; }
+.seg button { border: 0; border-radius: 0; padding: 4px 10px; font-size: var(--text-xs); color: var(--text-secondary); }
+.seg button.on { background: var(--text-primary); color: var(--text-inverse); }
+.adv-thread { display: grid; gap: var(--space-4); }
+.adv-msg { display: grid; gap: 6px; }
+.adv-msg.you > div:last-child { color: var(--text-primary); font-weight: 500; }
+.adv-who { font-size: var(--text-xs); color: var(--text-muted); }
+.adv-msg.live .adv-who { animation: blink 1.2s ease-in-out infinite; }
+.adv-tools { margin: 0; padding-left: 18px; font-size: var(--text-xs); color: var(--text-muted); }
+.adv-tools li { word-break: break-all; }
+
 @media (max-width: 899px) {
   .tasks .col-stage { display: none; }
   .task-layout { grid-template-columns: 1fr; }
@@ -366,7 +377,9 @@ function pathLink(m, path, line, end, hashLine) {
   if (IMAGE_RE.test(path) || /\/screens\//.test(path) && !/\.[a-z0-9]{1,8}$/i.test(path)) return shotLink(path);
   if (!/\.[A-Za-z0-9]{1,8}$/.test(path)) return m;
   const ln = line || hashLine || "";
-  return `<a class="src" href="#" data-src="${esc(path)}" data-line="${esc(ln)}" data-end="${esc(end || "")}">${icon("file")}${esc(shown)}</a>`;
+  // Inside a repository only the repo-relative part is shown; the full path stays in the tooltip.
+  const short = shown.replace(/^(?:~|\/Users\/[^/]+)\/(?:orca\/workspaces\/[^/]+\/[^/]+|go\/src\/github\.com\/MercuryoPro\/[^/]+)\//, "");
+  return `<a class="src" href="#" data-src="${esc(path)}" data-line="${esc(ln)}" data-end="${esc(end || "")}" title="${esc(shown)}">${icon("file")}${esc(short)}</a>`;
 }
 
 function linkify(html) {
@@ -593,6 +606,57 @@ function promptPanel(s) {
     </div></section>`;
 }
 
+const advisorState = new Map(), advisorModel = new Map();
+let advisorTimer = 0;
+
+function advisorBody(id) {
+  const st = advisorState.get(id);
+  if (!st) return `<div class="muted small">загружаю беседу…</div>`;
+  const msgs = st.messages.map(m => m.role === "user"
+    ? `<div class="adv-msg you"><div class="adv-who">Ты · ${esc(when(m.ts))}${m.model ? ` · ${esc(m.model)}` : ""}</div><div>${inline(m.text)}</div></div>`
+    : `<div class="adv-msg bot"><div class="adv-who">Советчик · ${esc(when(m.ts))}</div>
+        ${m.error ? `<div class="error">${esc(m.error)}</div>` : ""}<div class="quote">${md(m.text)}</div>
+        ${(m.tools || []).length ? det("adv-tools:" + id + m.ts, `что читал · ${m.tools.length}`, `<ul class="adv-tools">${m.tools.map(t => `<li>${inline(t)}</li>`).join("")}</ul>`) : ""}</div>`).join("");
+  const run = st.running;
+  const live = run ? `<div class="adv-msg bot live"><div class="adv-who">Советчик думает · ${Math.round((Date.now() / 1000 - run.started))} с</div>
+      ${run.tools.length ? `<ul class="adv-tools">${run.tools.slice(-4).map(t => `<li>${inline(t)}</li>`).join("")}</ul>` : ""}
+      ${run.text.trim() ? `<div class="quote">${md(run.text)}</div>` : ""}</div>` : "";
+  return (msgs || live ? `<div class="adv-thread">${msgs}${live}</div>` : `<div class="muted small">Спроси что угодно про задачу: код, решение, вопрос оркестратора. Советчик только читает worktree и ничего не меняет.</div>`);
+}
+
+function advisorPanel(s) {
+  const model = advisorModel.get(s.id) || (advisorState.get(s.id) || {}).model || "sonnet";
+  const running = !!(advisorState.get(s.id) || {}).running;
+  const has = ((advisorState.get(s.id) || {}).messages || []).length;
+  return `<section class="panel" id="advisor-panel" data-stream="${esc(s.id)}"><div class="panel-head"><h2>${icon("ask")}Спросить про задачу</h2>
+      <span class="right"><span class="seg">${["sonnet", "opus"].map(m => `<button type="button" class="${m === model ? "on" : ""}" data-adv-model="${m}" data-stream="${esc(s.id)}">${m === "sonnet" ? "Sonnet" : "Opus"}</button>`).join("")}</span>
+      ${has ? `<button type="button" class="toggle" data-adv-reset="${esc(s.id)}">новая беседа</button>` : ""}</span></div>
+    <div class="panel-body stack-lg"><div id="advisor-body">${advisorBody(s.id)}</div>
+      <form class="adv-form stack" data-stream="${esc(s.id)}" data-key="a:${esc(s.id)}">
+        <textarea placeholder="Вопрос советчику по ${esc(s.id)} · ⌘Enter — отправить" ${running ? "disabled" : ""}>${esc(drafts.get("a:" + s.id) || "")}</textarea>
+        <div class="row-actions"><button type="submit" class="primary" ${running ? "disabled" : ""}>${running ? "Отвечает…" : "Спросить"}</button></div>
+      </form></div></section>`;
+}
+
+async function loadAdvisor(id) {
+  clearTimeout(advisorTimer);
+  try {
+    const res = await fetch("/api/advisor?stream=" + encodeURIComponent(id), {cache: "no-store"});
+    const data = await res.json();
+    if (res.ok) advisorState.set(id, data);
+  } catch (e) { /* retried on the next tick */ }
+  const panel = document.getElementById("advisor-panel");
+  if (!panel || panel.dataset.stream !== id) return;
+  const running = !!(advisorState.get(id) || {}).running;
+  document.getElementById("advisor-body").innerHTML = advisorBody(id);
+  panel.querySelector("button[type=submit]").disabled = running;
+  panel.querySelector("button[type=submit]").textContent = running ? "Отвечает…" : "Спросить";
+  panel.querySelector("textarea").disabled = running;
+  if (running) advisorTimer = setTimeout(() => loadAdvisor(id), 1000);
+  else if (panel.dataset.wasRunning === "1") { panel.dataset.wasRunning = ""; safeRender(); }
+  if (running) panel.dataset.wasRunning = "1";
+}
+
 function notePanel(s) {
   if (s.closed) return "";
   return `<section class="panel"><div class="panel-head"><h2>${icon("pen")}Комментарий</h2>
@@ -674,7 +738,7 @@ function taskView(s) {
       ${s.last_ts ? `<span class="st muted">${icon("clock")}${esc(ago(s.last_ts))}</span>` : ""}${splitTitle(titleOf(s)).tags.filter(t => t !== repoOf(s)).map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
       <h1 class="big">${repoOf(s) ? `<span class="repo">${esc(repoOf(s))}</span>` : ""}${esc(splitTitle(titleOf(s)).title)}</h1>${err}</header>
     <div class="task-layout">
-      <div class="task-main">${promptPanel(s)}${s.owner_asks.length ? askPanel("s:" + s.id, s.owner_asks, s.ask || {}, sessionOf(s.orchestrator), s.id, rs) : idle}${notePanel(s)}${s.prepared ? "" : journalPanel(s)}</div>
+      <div class="task-main">${promptPanel(s)}${s.owner_asks.length ? askPanel("s:" + s.id, s.owner_asks, s.ask || {}, sessionOf(s.orchestrator), s.id, rs) : idle}${notePanel(s)}${advisorPanel(s)}${s.prepared ? "" : journalPanel(s)}</div>
       <aside class="task-side">${linksPanel(s)}${contourPanel(s)}${s.prepared ? "" : stagesPanel(s)}</aside>
     </div>`;
 }
@@ -1104,6 +1168,7 @@ function render() {
   }
   document.getElementById("app").innerHTML = html;
   setTimeout(loadIssues, 0);
+  if (r.kind === "task" && !advisorState.has(r.id)) loadAdvisor(r.id);
   stampUpdated();
 }
 
@@ -1200,7 +1265,7 @@ function saveDrafts() {
 try { JSON.parse(sessionStorage.getItem("desk-drafts") || "[]").forEach(([k, v]) => drafts.set(k, v)); } catch (e) { /* ignore */ }
 
 document.addEventListener("input", e => {
-  const f = e.target.closest("form.reply, form.term-text");
+  const f = e.target.closest("form.reply, form.term-text, form.adv-form");
   if (f) { drafts.set(f.dataset.key, e.target.value); saveDrafts(); }
 });
 document.addEventListener("focusout", () => setTimeout(() => {
@@ -1212,6 +1277,16 @@ document.addEventListener("click", async e => {
   if (e.target.closest("a")) return;
   const q = e.target.closest("[data-quick]");
   if (q) { sendReply(q.closest("form.reply"), q.dataset.quick); return; }
+  const am = e.target.closest("[data-adv-model]");
+  if (am) { advisorModel.set(am.dataset.stream, am.dataset.advModel); safeRender(); return; }
+  const ar = e.target.closest("[data-adv-reset]");
+  if (ar) {
+    if (!await dialog({title: "Новая беседа", body: `<p class="muted">Советчик забудет прошлые вопросы по ${esc(ar.dataset.advReset)} и заново соберёт контекст задачи.</p>`, ok: "Начать заново"})) return;
+    const {res, data} = await post("/api/advisor/reset", {stream: ar.dataset.advReset});
+    if (res.ok) advisorState.set(ar.dataset.advReset, data); else toast(data.error || "Не получилось");
+    safeRender();
+    return;
+  }
   const pick = e.target.closest("[data-pick]");
   if (pick) {
     const {stream, label} = pick.dataset;
@@ -1275,6 +1350,7 @@ document.addEventListener("click", e => {
 
 document.addEventListener("submit", async e => {
   e.preventDefault();
+  if (e.target.matches("form.adv-form")) return askAdvisor(e.target);
   if (!e.target.matches("form.term-text")) return sendReply(e.target, null);
   const f = e.target, text = f.querySelector("textarea").value.trim(), stream = f.dataset.stream;
   if (!text) return;
@@ -1321,6 +1397,24 @@ async function sendReply(f, quick) {
     if (!f.isConnected && !editing()) safeRender();
   }
 }
+
+async function askAdvisor(f) {
+  const id = f.dataset.stream, ta = f.querySelector("textarea"), question = ta.value.trim();
+  if (!question) return;
+  const model = advisorModel.get(id) || (advisorState.get(id) || {}).model || "sonnet";
+  const {res, data} = await post("/api/advisor", {stream: id, question, model});
+  if (!res.ok) return toast(data.error || "Советчик не запустился");
+  drafts.delete(f.dataset.key); saveDrafts(); ta.value = ""; ta.blur();
+  advisorState.set(id, data);
+  loadAdvisor(id);
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && e.target.closest && e.target.closest("form.adv-form")) {
+    e.preventDefault();
+    askAdvisor(e.target.closest("form.adv-form"));
+  }
+});
 
 function anyPending() {
   if (!last) return false;
