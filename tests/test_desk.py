@@ -160,6 +160,16 @@ class AskThreadTest(unittest.TestCase):
                                            "права на пакетное создание, какие задачи go-libs заводить"))
         self.assertFalse(transcript.similar("вид MER-3226 на 20469", "какие задачи go-libs заводить"))
 
+    def test_a_general_ask_keeps_its_whole_section(self):
+        msg = ("**Смержено.** всё хорошо\n\n**Вопрос. Какие предложения заводить задачами?**\n\n"
+               "Варианты:\n1. первое\n2. второе\n\nРекомендация: 1.\n\n**Дальше.** другое\n\n"
+               "waiting: ты — какие предложения заводить задачами · t")
+        paras = transcript.paragraphs_matching(msg, "какие предложения заводить задачами")
+        self.assertEqual(paras[0], "**Вопрос. Какие предложения заводить задачами?**")
+        self.assertIn("Варианты:\n1. первое\n2. второе", paras)
+        self.assertIn("Рекомендация: 1.", paras)
+        self.assertFalse(any("Дальше" in p or "Смержено" in p for p in paras))
+
     def test_no_ask_no_thread(self):
         self.assertEqual(transcript.ask_thread(self.msgs("x\n\nwaiting: ты — y · t"), lambda i: "MER-1" in i), {})
 

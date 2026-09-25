@@ -681,7 +681,7 @@ function taskView(s) {
 
 function generalView(g) {
   return `<a class="back" href="#/">← Все задачи</a>
-    <header class="task-head"><div class="task-head-top"><span class="id">вопрос без задачи</span><span class="badge you dot">Ждёт тебя</span></div>
+    <header class="task-head"><div class="task-head-top"><span class="id">${(g.item.match(/MER-\d+/) || [])[0] ? `по ${linkify((g.item.match(/MER-\d+/) || [])[0])}` : "вопрос без задачи"}</span><span class="badge you dot">Ждёт тебя</span></div>
       <h1 class="big">${inline(g.item)}</h1></header>
     <div class="task-layout one">${askPanel("g:" + g.id, [g.item], g.ask || {}, sessionOf(g.orchestrator), "", replyState("", g.orchestrator, true, g.item))}</div>`;
 }
@@ -871,7 +871,7 @@ function homeView() {
       <td class="col-when" title="${esc(when(s.last_ts))}">${esc(short(s.last_ts))}</td></tr>`;
   };
   const general = d.general_asks.map(g => `<tr class="row" data-href="#/ask/${esc(encodeURIComponent(g.id))}">
-      <td class="col-task"><div class="t-line"><span class="id">вопрос</span><span class="t-title">${inline(g.item)}</span></div></td>
+      <td class="col-task"><div class="t-line"><span class="id">${esc((g.item.match(/MER-\d+/) || ["вопрос"])[0])}</span><span class="t-title">${inline(g.item)}</span></div></td>
       <td class="col-stage"></td><td class="col-status"><span class="sicon you" title="ждёт тебя">${icon("ask")}</span></td>
       <td class="col-links"></td><td class="col-when">${esc(short((g.ask && g.ask.origin || {}).ts))}</td></tr>`).join("");
   const needsYou = s => s.owner_asks.length || (s.prompt && !s.prompt.error);

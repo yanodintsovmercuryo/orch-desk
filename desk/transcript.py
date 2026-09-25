@@ -165,13 +165,25 @@ def similar(a, b, share=0.5):
 
 
 def paragraphs_matching(message, item):
-    """Paragraphs of the message that share words with an ask, status line excluded."""
+    """The sections of the message about an ask: a matching paragraph and what follows it up to the
+    next bold heading, so a question keeps its options and recommendation."""
     want = stems(item)
-    out = []
+    paras = []
     for para in re.split(r"\n\s*\n", message):
         para = "\n".join(l for l in para.strip().splitlines() if not STATUS_RE.search(l)).strip()
-        if para and len(stems(para) & want) >= min(2, len(want)):
-            out.append(para)
+        if para:
+            paras.append(para)
+    out, taken = [], set()
+    for i, para in enumerate(paras):
+        if i in taken or len(stems(para) & want) < min(2, len(want)):
+            continue
+        j = i
+        while True:
+            taken.add(j)
+            out.append(paras[j])
+            j += 1
+            if j >= len(paras) or paras[j].startswith("**"):
+                break
     return out
 
 
