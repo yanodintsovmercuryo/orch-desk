@@ -37,6 +37,9 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _send_record(self, record):
+        return self._send(200 if record.get("ok") else 502, record)
+
     def _host_ok(self):
         # Guards against DNS rebinding: only our own host name reaches the API.
         return self.headers.get("Host", "") in ALLOWED_HOSTS
@@ -103,6 +106,9 @@ class Handler(BaseHTTPRequestHandler):
             if stream and stream not in orch["streams"]:
                 return self._send(400, {"error": "unknown stream"})
             images = uploads.checked(body.get("images") or [])
+            kind = "note" if body.get("kind") == "note" else "reply"
+            if kind == "note":
+                return self._send_record(deliver.send(session_id, stream, text, REPLIES, images, kind="note"))
             asks = [a for a in (body.get("asks") or []) if isinstance(a, str)][:5]
             if stream and not asks:
                 asks = view.current_asks(orch["name"], stream)
@@ -112,8 +118,7 @@ class Handler(BaseHTTPRequestHandler):
                 if len(general) != 1:
                     return self._send(400, {"error": "не понятно, на какой вопрос ответ — обнови страницу"})
                 asks = general
-            record = deliver.send(session_id, stream, text, REPLIES, images, asks)
-            return self._send(200 if record.get("ok") else 502, record)
+            return self._send_record(deliver.send(session_id, stream, text, REPLIES, images, asks))
         except ValueError as e:
             return self._send(400, {"error": str(e)})
         except Exception:

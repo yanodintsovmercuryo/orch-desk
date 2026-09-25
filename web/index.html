@@ -270,6 +270,9 @@ tr.flash td { animation: flash 2.4s ease-out; }
 .toast.out { opacity: 0; transform: translateY(-6px); transition: opacity .25s, transform .25s; }
 @keyframes drop { from { opacity: 0; transform: translateY(-8px); } }
 
+.panel-head h2 .ico { width: 15px; height: 15px; margin-right: 8px; color: var(--text-muted); vertical-align: -2px; }
+.small { font-size: var(--text-xs); }
+
 @media (max-width: 899px) {
   .tasks .col-stage { display: none; }
   .task-layout { grid-template-columns: 1fr; }
@@ -404,14 +407,16 @@ function attachList(key) {
       <button type="button" class="thumb-x" data-unattach="${i}" title="Убрать">×</button></span>`).join("");
 }
 
-function replyForm(key, sessionId, stream, asks) {
+function replyForm(key, sessionId, stream, asks, kind = "reply") {
   const rc = receipts.get(key) || {};
-  return `<form class="reply stack" data-key="${esc(key)}" data-session="${esc(sessionId)}" data-stream="${esc(stream)}" data-asks="${esc(JSON.stringify(asks || []))}">
-    <textarea name="text" placeholder="Ответ оркестратору${stream ? " по " + esc(stream) : ""}. Картинку можно вставить ⌘V или перетащить">${esc(drafts.get(key) || "")}</textarea>
+  const hint = kind === "note" ? "Что поправить: файл, решение, подход. Картинку можно вставить ⌘V"
+    : `Ответ оркестратору${stream ? " по " + esc(stream) : ""}. Картинку можно вставить ⌘V или перетащить`;
+  return `<form class="reply stack" data-key="${esc(key)}" data-session="${esc(sessionId)}" data-stream="${esc(stream)}" data-kind="${kind}" data-asks="${esc(JSON.stringify(asks || []))}">
+    <textarea name="text" placeholder="${hint}">${esc(drafts.get(key) || "")}</textarea>
     <div class="thumbs">${attachList(key)}</div>
     <div class="row-actions">
       <button type="submit" class="primary">Отправить</button>
-      <button type="button" data-quick="Принимаю">Принимаю</button>
+      ${kind === "note" ? "" : `<button type="button" data-quick="Принимаю">Принимаю</button>`}
       <label class="attach-btn" title="Прикрепить картинку">${icon("image")}<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden data-attach></label>
       <span class="receipt ${rc.cls || ""}">${esc(rc.text || "")}</span>
     </div></form>`;
@@ -457,6 +462,13 @@ function askPanel(key, items, ask, session, stream, rs) {
       <div>${origin}</div>${updates}
       <div><div class="section-label">Ответ</div>${replyForm(key, session, stream, items)}</div>
     </div></section>`;
+}
+
+function notePanel(s) {
+  if (s.closed) return "";
+  return `<section class="panel"><div class="panel-head"><h2>${icon("pen")}Поправка</h2>
+      <span class="right muted small">оркестратор передаст её потоку</span></div>
+    <div class="panel-body">${replyForm("n:" + s.id, sessionOf(s.orchestrator), s.id, [], "note")}</div></section>`;
 }
 
 function sideLink(label, sub, url, ic) {
@@ -527,13 +539,13 @@ function taskView(s) {
   const rs = streamReply(s);
   const idle = s.closed ? "" : rs && rs.kind === "resolved"
     ? `<section class="panel"><div class="panel-head"><h2>Вопрос снят</h2></div><div class="panel-body">${tracker(rs)}</div></section>`
-    : `<section class="panel"><div class="panel-body muted">Сейчас оркестратор ничего у тебя по этой задаче не спрашивает.</div></section>`;
+    : "";
   return `<a class="back" href="#/">← Все задачи</a>
     <header class="task-head"><div class="task-head-top"><span class="id">${esc(s.id)}</span>${statusCell(s)}
       <span class="st muted">${icon("clock")}${esc(ago(s.last_ts))}</span>${splitTitle(titleOf(s)).tags.filter(t => t !== repoOf(s)).map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
       <h1 class="big">${repoOf(s) ? `<span class="repo">${esc(repoOf(s))}</span>` : ""}${esc(splitTitle(titleOf(s)).title)}</h1>${err}</header>
     <div class="task-layout">
-      <div class="task-main">${s.owner_asks.length ? askPanel("s:" + s.id, s.owner_asks, s.ask || {}, sessionOf(s.orchestrator), s.id, rs) : idle}${journalPanel(s)}</div>
+      <div class="task-main">${s.owner_asks.length ? askPanel("s:" + s.id, s.owner_asks, s.ask || {}, sessionOf(s.orchestrator), s.id, rs) : idle}${notePanel(s)}${journalPanel(s)}</div>
       <aside class="task-side">${linksPanel(s)}${contourPanel(s)}${stagesPanel(s)}</aside>
     </div>`;
 }
@@ -564,6 +576,7 @@ const ICONS = {
   layers: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
   branch: '<path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
   image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/>',
+  pen: '<path d="M12 20h9"/><path d="M16.38 3.62a1 1 0 0 1 3 3L7.37 18.64a2 2 0 0 1-.86.51l-2.87.84a.5.5 0 0 1-.62-.62l.84-2.87a2 2 0 0 1 .51-.86z"/>',
   folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
 };
 
@@ -627,7 +640,7 @@ function orchOf(name) {
 // What happened to the owner's latest reply on a stream: pending, again (a turn ended and the
 // ask is still there), resolved (the ask left the waiting line), or nothing to show.
 function replyState(streamId, orchName, asked) {
-  const r = [...(last.replies || [])].reverse().find(x => x.ok && x.stream === streamId);
+  const r = [...(last.replies || [])].reverse().find(x => x.ok && x.stream === streamId && x.kind !== "note");
   if (!r) return null;
   const sent = tsMs(r.ts), o = orchOf(orchName), turn = tsMs(o.message_ts);
   const busy = o.session_status === "busy";
@@ -941,10 +954,12 @@ async function sendReply(f, quick) {
   if (!text && !images.length) { note("err", "Пустой ответ."); return; }
   const preview = (asks.length ? `<p class="muted">На вопрос: ${asks.map(a => `«${inline(a)}»`).join("; ")}</p>` : "") + (text ? `<div class="quote">${esc(text).replace(/\n/g, "<br>")}</div>` : "") +
     (list.length ? `<div class="thumbs">${list.map(a => `<span class="thumb"><img src="${esc(a.url)}" alt=""></span>`).join("")}</div>` : "");
-  if (!await dialog({title: `Ответ оркестратору${f.dataset.stream ? " · " + f.dataset.stream : ""}`, body: preview, ok: "Отправить"})) return;
+  const kind = f.dataset.kind || "reply";
+  const title = kind === "note" ? `Поправка · ${f.dataset.stream}` : `Ответ оркестратору${f.dataset.stream ? " · " + f.dataset.stream : ""}`;
+  if (!await dialog({title, body: preview, ok: "Отправить"})) return;
   btn.disabled = true; note("", "Отправляю…");
   try {
-    const {res, data: r} = await post("/api/reply", {session_id: f.dataset.session, stream: f.dataset.stream, text, images, asks});
+    const {res, data: r} = await post("/api/reply", {session_id: f.dataset.session, stream: f.dataset.stream, text, images, asks, kind});
     if (res.ok && r.ok) {
       note("", "Доставлено оркестратору · " + new Date().toLocaleTimeString("ru-RU"));
       if (!quick) {

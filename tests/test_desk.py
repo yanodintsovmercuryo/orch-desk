@@ -191,6 +191,13 @@ class DeliverTest(unittest.TestCase):
         self.assertEqual(deliver.format_reply("", "Принимаю", asks=["два ADR\nпо MER-9"]),
                          "[desk] на «два ADR / по MER-9»: Принимаю")
 
+    def test_note_is_marked_as_a_correction(self):
+        self.assertEqual(deliver.format_reply("MER-2914", "без глобального логгера", kind="note"),
+                         "[desk] MER-2914 · поправка: без глобального логгера")
+        with tempfile.TemporaryDirectory() as d:
+            with self.assertRaises(ValueError):
+                deliver.send("s", "", "x", os.path.join(d, "r.jsonl"), kind="note")
+
     def test_reply_without_task_or_question_is_refused(self):
         with tempfile.TemporaryDirectory() as d:
             with self.assertRaises(ValueError):

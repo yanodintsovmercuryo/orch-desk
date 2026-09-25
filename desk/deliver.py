@@ -78,7 +78,7 @@ def _one_line(text):
     return " / ".join(l.strip() for l in str(text).strip().splitlines() if l.strip())
 
 
-def format_reply(stream, text, images=(), asks=()):
+def format_reply(stream, text, images=(), asks=(), kind="reply"):
     # One line: a newline typed into the agent prompt would submit early. The task and the
     # question it answers always travel with the reply, so a bare "Принимаю" is never ambiguous.
     body = _one_line(text)
@@ -86,21 +86,25 @@ def format_reply(stream, text, images=(), asks=()):
         body = (body + " · " if body else "") + "картинки: " + " ".join(images)
     about = "; ".join(f"«{_one_line(a)[:300]}»" for a in asks if _one_line(a))
     head = "[desk]" + (f" {stream}" if stream else "")
+    if kind == "note":
+        return f"{head} · поправка: {body}"
     if about:
         head += (" · на " if stream else " на ") + about
     return f"{head}: {body}"
 
 
-def send(session_id, stream, text, log_path, images=(), asks=()):
+def send(session_id, stream, text, log_path, images=(), asks=(), kind="reply"):
     if not text.strip() and not images:
         raise ValueError("пустой ответ")
-    if not stream and not any(_one_line(a) for a in asks):
+    if kind == "note" and not stream:
+        raise ValueError("поправка должна относиться к задаче")
+    if kind != "note" and not stream and not any(_one_line(a) for a in asks):
         raise ValueError("ответ без задачи должен называть вопрос — обнови страницу")
     if len(text) > MAX_LEN:
         raise ValueError(f"ответ длиннее {MAX_LEN} символов")
-    line = format_reply(stream, text, images, asks)
+    line = format_reply(stream, text, images, asks, kind)
     record = {"ts": datetime.now().astimezone().isoformat(timespec="seconds"), "stream": stream, "text": line,
-              "images": list(images)}
+              "images": list(images), "kind": kind}
     try:
         target = resolve(session_id)
         record["target"] = target
