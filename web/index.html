@@ -836,10 +836,7 @@ window.addEventListener("hashchange", () => { window.scrollTo(0, 0); safeRender(
 document.addEventListener("click", async e => {
   if (e.target.closest("a")) return;
   const q = e.target.closest("[data-quick]");
-  if (q) {
-    const f = q.closest("form"), ta = f.querySelector("textarea");
-    ta.value = q.dataset.quick; drafts.set(f.dataset.key, ta.value); ta.focus(); return;
-  }
+  if (q) { sendReply(q.closest("form.reply"), q.dataset.quick); return; }
   if (e.target.closest("#toggle-closed")) { showClosed = !showClosed; safeRender(); return; }
   const ws = e.target.closest("[data-ws]");
   if (ws) {
@@ -891,12 +888,17 @@ document.addEventListener("click", e => {
   redrawThumbs(f);
 });
 
-document.addEventListener("submit", async e => {
+document.addEventListener("submit", e => {
   e.preventDefault();
-  const f = e.target, ta = f.querySelector("textarea"), rc = f.querySelector(".receipt"), btn = f.querySelector("button[type=submit]");
+  sendReply(e.target, null);
+});
+
+// quick: a canned reply sent on its own (still confirmed); null sends the typed text and images.
+async function sendReply(f, quick) {
+  const ta = f.querySelector("textarea"), rc = f.querySelector(".receipt"), btn = f.querySelector("button[type=submit]");
   const note = (cls, text) => { rc.className = "receipt " + cls; rc.textContent = text; receipts.set(f.dataset.key, {cls, text}); };
-  const text = ta.value.trim();
-  const list = attachments.get(f.dataset.key) || [];
+  const text = quick ?? ta.value.trim();
+  const list = quick ? [] : attachments.get(f.dataset.key) || [];
   if (list.some(a => !a.path && !a.error)) { note("err", "Картинка ещё загружается."); return; }
   if (list.some(a => a.error)) { note("err", "Убери картинки с ошибкой."); return; }
   const images = list.map(a => a.path);
@@ -909,8 +911,10 @@ document.addEventListener("submit", async e => {
     const {res, data: r} = await post("/api/reply", {session_id: f.dataset.session, stream: f.dataset.stream, text, images});
     if (res.ok && r.ok) {
       note("", "Доставлено оркестратору · " + new Date().toLocaleTimeString("ru-RU"));
-      drafts.delete(f.dataset.key); ta.value = "";
-      list.forEach(a => URL.revokeObjectURL(a.url)); attachments.delete(f.dataset.key); redrawThumbs(f);
+      if (!quick) {
+        drafts.delete(f.dataset.key); ta.value = "";
+        list.forEach(a => URL.revokeObjectURL(a.url)); attachments.delete(f.dataset.key); redrawThumbs(f);
+      }
     } else {
       note("err", "Не доставлено: " + (r.error || JSON.stringify(r.receipt || r)));
     }
@@ -921,7 +925,7 @@ document.addEventListener("submit", async e => {
     // A render may have replaced this form while the request ran; redraw from the saved state.
     if (!f.isConnected && !editing()) safeRender();
   }
-});
+}
 
 function anyPending() {
   if (!last) return false;

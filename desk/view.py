@@ -96,7 +96,9 @@ def build(root=None):
             ids = transcript.refs(item)[0]
             same = (lambda i, ids=ids: bool(transcript.refs(i)[0] & ids)) if ids else (lambda i, item=item: i == item)
             out["general_asks"].append({
-                "id": "g-" + hashlib.sha1(item.encode()).hexdigest()[:8], "orchestrator": o["name"], "item": item,
+                # Keyed by the tasks it names when it names any: the wording shifts turn to turn.
+                "id": "g-" + hashlib.sha1((" ".join(sorted(ids)) or item).encode()).hexdigest()[:8],
+                "orchestrator": o["name"], "item": item,
                 "ask": transcript.ask_thread(by_orch.get(o["name"], []), same),
             })
 
