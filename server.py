@@ -3,13 +3,14 @@
 
 import json
 import mimetypes
+import re
 import os
 import sys
 import threading
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from desk import deliver, terminal, uploads, view, workspace
+from desk import deliver, links, terminal, uploads, view, workspace
 
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("DESK_PORT", "8800"))
@@ -65,6 +66,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, data)
             except Exception:
                 return self._send(500, {"error": traceback.format_exc(limit=5)})
+        if route == "/api/issues":
+            # Titles for task ids mentioned in text; served from the Linear cache, never blocking.
+            query = self.path.split("?", 1)[1] if "?" in self.path else ""
+            ids = [i for i in query.replace("ids=", "").split(",") if re.fullmatch(r"[A-Z][A-Z0-9]+-\d+", i)][:60]
+            return self._send(200, {i: links.linear(i) for i in ids})
         if route == "/api/health":
             return self._send(200, {"ok": True})
         return self._send(404, {"error": "not found"})

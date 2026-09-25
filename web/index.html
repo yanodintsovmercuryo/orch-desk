@@ -281,6 +281,9 @@ tr.flash td { animation: flash 2.4s ease-out; }
 .opt.rec { border-color: var(--text-primary); }
 .opt:hover { background: var(--surface-raised); }
 
+a.ref { color: var(--text-primary); text-decoration-style: dotted; }
+.ref-title { color: var(--text-secondary); font-weight: 400; }
+
 @media (max-width: 899px) {
   .tasks .col-stage { display: none; }
   .task-layout { grid-template-columns: 1fr; }
@@ -305,13 +308,65 @@ const busy = new Map();
 
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
 
+const issues = new Map(), issuesAsked = new Set();
+let ctxRepo = "";
+
+function knownRepos() {
+  const set = new Set(["notifier", "go-libs"]);
+  (last ? last.streams : []).forEach(s => { const r = repoOf(s); if (r) set.add(r); });
+  return set;
+}
+
+function issueLink(id) {
+  issuesAsked.add(id);
+  const info = issues.get(id) || {};
+  const url = info.url || `https://linear.app/mercuryo/issue/${id}`;
+  return `<a class="ref" href="${esc(url)}" target="_blank" rel="noopener" title="${esc(info.title || "")}">${id}</a>`;
+}
+
+// Task ids and PR numbers in orchestrator text become links; text inside links and code is left alone.
+function linkify(html) {
+  const repos = knownRepos();
+  return html.split(/(<a\b[^>]*>.*?<\/a>|<code>.*?<\/code>|<[^>]+>)/).map((part, i) => {
+    if (i % 2) return part;
+    part = part.replace(/\b([a-z][a-z0-9-]+) #(\d+)\b/g, (m, repo, n) => repos.has(repo)
+      ? `<a class="ref" href="https://github.com/MercuryoPro/${repo}/pull/${n}" target="_blank" rel="noopener">${repo} #${n}</a>` : m);
+    part = part.replace(/\bPR #(\d+)\b/g, (m, n) => ctxRepo
+      ? `<a class="ref" href="https://github.com/MercuryoPro/${ctxRepo}/pull/${n}" target="_blank" rel="noopener">PR #${n}</a>` : m);
+    return part.replace(/\b(MER-\d+)\b/g, (m, id) => issueLink(id));
+  }).join("");
+}
+
 function inline(s) {
   s = esc(s);
   s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
   s = s.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
   s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
   s = s.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
-  return s;
+  return linkify(s);
+}
+
+// The question headline also spells out each task's title, so an id alone never has to be decoded.
+function withTitles(html) {
+  return html.replace(/(<a class="ref"[^>]*>(MER-\d+)<\/a>)/g, (m, a, id) => {
+    const t = (issues.get(id) || {}).title;
+    return t ? `${a} <span class="ref-title">· ${esc(t)}</span>` : a;
+  });
+}
+
+async function loadIssues() {
+  const want = [...issuesAsked].filter(id => !issues.has(id) || !issues.get(id).title);
+  if (!want.length) return;
+  try {
+    const res = await fetch("/api/issues?ids=" + want.join(","), {cache: "no-store"});
+    const data = await res.json();
+    let changed = false;
+    Object.entries(data).forEach(([id, info]) => {
+      if (info && info.title && (issues.get(id) || {}).title !== info.title) changed = true;
+      if (info) issues.set(id, info);
+    });
+    if (changed && !editing()) safeRender();
+  } catch (e) { /* titles are a nicety */ }
 }
 
 function md(text) {
@@ -466,7 +521,7 @@ function askPanel(key, items, ask, session, stream, rs) {
   const track = rs && rs.kind !== "resolved" ? tracker(rs) : "";
   return `<section class="panel ask-panel"><div class="panel-head"><h2>Вопрос к тебе</h2></div>
     <div class="panel-body stack-lg">${track}
-      <div class="question">${items.map(i => `<div>${inline(i)}</div>`).join("")}</div>
+      <div class="question">${items.map(i => `<div>${withTitles(inline(i))}</div>`).join("")}</div>
       <div>${origin}</div>${updates}
       <div><div class="section-label">Ответ</div>${replyForm(key, session, stream, items)}</div>
     </div></section>`;
@@ -812,8 +867,10 @@ function render() {
   if (!last) return;
   const r = route();
   let html;
+  ctxRepo = "";
   if (r.kind === "task") {
     const s = last.streams.find(x => x.id === r.id);
+    if (s) ctxRepo = repoOf(s);
     if (!s) return leave(`Задачи ${r.id} больше нет в работе`);
     html = taskView(s);
   } else if (r.kind === "ask") {
@@ -824,6 +881,7 @@ function render() {
     html = homeView();
   }
   document.getElementById("app").innerHTML = html;
+  setTimeout(loadIssues, 0);
   stampUpdated();
 }
 
