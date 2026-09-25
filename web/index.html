@@ -235,6 +235,35 @@ html { font-size: 86.6%; }
 .attach-btn:hover { background: var(--surface-hover); color: var(--text-primary); }
 form.reply.drop textarea { border-color: var(--text-primary); border-style: dashed; }
 
+.modal-overlay { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, .62); backdrop-filter: blur(3px); animation: fade .12s ease; }
+.modal { width: min(560px, 100%); max-height: 86vh; overflow: auto; background: var(--surface-card); border: 1px solid var(--border-strong); border-radius: var(--r-lg); padding: var(--space-5) var(--space-6); box-shadow: 0 24px 60px -20px rgba(0, 0, 0, .8); animation: pop .14s ease; }
+.modal h3 { margin: 0 0 var(--space-4); font-size: var(--text-xl); font-weight: 600; }
+.modal-body { display: grid; gap: var(--space-3); }
+.modal-body p { margin: 0; }
+.modal-body .quote { max-height: 40vh; overflow: auto; }
+.modal-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-5); }
+button.primary.danger { background: var(--danger); border-color: var(--danger); }
+@keyframes fade { from { opacity: 0; } }
+@keyframes pop { from { opacity: 0; transform: translateY(6px) scale(.98); } }
+.sicon.pending { color: var(--text-primary); border: 1px solid var(--text-primary); animation: ring 1.4s ease-out infinite; }
+.sicon.resolved { background: var(--text-primary); color: var(--text-inverse); animation: pop .3s ease; }
+@keyframes ring { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,.45); } 100% { box-shadow: 0 0 0 9px rgba(255,255,255,0); } }
+.row-ask .ico { width: 12px; height: 12px; margin-right: 5px; vertical-align: -1px; }
+.row-ask.live { color: var(--text-primary); }
+.row-ask.live .ico { animation: blink 1.2s ease-in-out infinite; }
+.row-ask.ok { color: var(--text-primary); }
+@keyframes blink { 50% { opacity: .3; } }
+tr.flash td { animation: flash 2.4s ease-out; }
+@keyframes flash { 0% { background: rgba(255,255,255,.12); } 100% { background: transparent; } }
+.tracker { list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); margin: 0; padding: 0; }
+.tracker li { border-top: 2px solid var(--border-strong); padding-top: 8px; font-size: var(--text-sm); color: var(--text-muted); display: grid; gap: 2px; }
+.tracker li i { display: none; }
+.tracker li small { font-size: var(--text-xs); color: var(--text-muted); }
+.tracker li.done { border-color: var(--text-primary); color: var(--text-secondary); }
+.tracker li.now { border-color: var(--text-primary); color: var(--text-primary); animation: blink 1.2s ease-in-out infinite; }
+.tracker li.wait { border-color: var(--text-muted); color: var(--text-secondary); }
+.tracker li.alert { border-color: var(--danger); color: var(--danger); }
+
 @media (max-width: 899px) {
   .tasks .col-stage { display: none; }
   .task-layout { grid-template-columns: 1fr; }
@@ -247,11 +276,12 @@ form.reply.drop textarea { border-color: var(--text-primary); border-style: dash
 </style>
 </head>
 <body>
+<div id="modal-root"></div>
 <main class="page" id="app"><div class="empty">Загружаю…</div></main>
 <script>
 const STAGES = {"launched": "Запуск", "spec-drafted": "Спецификация", "plan-passed": "План", "gate-round": "Ревью",
   "pre-publish": "Публикация", "pre-merge": "Мерж", "closed": "Закрыта", "intent-moved": "Смена цели"};
-const drafts = new Map(), receipts = new Map(), openDetails = new Set(), attachments = new Map();
+const drafts = new Map(), receipts = new Map(), openDetails = new Set(), attachments = new Map(), flashed = new Set();
 let last = null, lastKey = "", pendingRender = false, loading = false, showClosed = false, updatedAt = null;
 const busy = new Map();
 
@@ -405,7 +435,7 @@ function redrawThumbs(form) {
   if (live) live.innerHTML = attachList(form.dataset.key);
 }
 
-function askPanel(key, items, ask, session, stream) {
+function askPanel(key, items, ask, session, stream, rs) {
   const origin = ask.origin
     ? `<div class="quote">${md(ask.origin.text)}</div><div class="quote-meta">сообщение оркестратора · ${esc(when(ask.origin.ts))}</div>`
     : `<div class="muted">Сообщение с вопросом не найдено в транскрипте.</div>`;
@@ -413,8 +443,9 @@ function askPanel(key, items, ask, session, stream) {
     ? det(key + ":updates", `Обновления после вопроса · ${ask.updates.length}`,
         `<div class="stack">${ask.updates.map(u => `<div><div class="quote">${md(u.paragraphs.join("\n\n"))}</div><div class="quote-meta">${esc(when(u.ts))}</div></div>`).join("")}</div>`)
     : "";
+  const track = rs && rs.kind !== "resolved" ? tracker(rs) : "";
   return `<section class="panel ask-panel"><div class="panel-head"><h2>Вопрос к тебе</h2></div>
-    <div class="panel-body stack-lg">
+    <div class="panel-body stack-lg">${track}
       <div class="question">${items.map(i => `<div>${inline(i)}</div>`).join("")}</div>
       <div>${origin}</div>${updates}
       <div><div class="section-label">Ответ</div>${replyForm(key, session, stream)}</div>
@@ -486,13 +517,16 @@ function journalPanel(s) {
 
 function taskView(s) {
   const err = s.error ? `<div class="error">${esc(s.error)}</div>` : "";
-  const idle = s.closed ? "" : `<section class="panel"><div class="panel-body muted">Сейчас оркестратор ничего у тебя по этой задаче не спрашивает.</div></section>`;
+  const rs = streamReply(s);
+  const idle = s.closed ? "" : rs && rs.kind === "resolved"
+    ? `<section class="panel"><div class="panel-head"><h2>Вопрос снят</h2></div><div class="panel-body">${tracker(rs)}</div></section>`
+    : `<section class="panel"><div class="panel-body muted">Сейчас оркестратор ничего у тебя по этой задаче не спрашивает.</div></section>`;
   return `<a class="back" href="#/">← Все задачи</a>
     <header class="task-head"><div class="task-head-top"><span class="id">${esc(s.id)}</span>${statusCell(s)}
       <span class="st muted">${icon("clock")}${esc(ago(s.last_ts))}</span>${splitTitle(titleOf(s)).tags.filter(t => t !== repoOf(s)).map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
       <h1 class="big">${repoOf(s) ? `<span class="repo">${esc(repoOf(s))}</span>` : ""}${esc(splitTitle(titleOf(s)).title)}</h1>${err}</header>
     <div class="task-layout">
-      <div class="task-main">${s.owner_asks.length ? askPanel("s:" + s.id, s.owner_asks, s.ask || {}, sessionOf(s.orchestrator), s.id) : idle}${journalPanel(s)}</div>
+      <div class="task-main">${s.owner_asks.length ? askPanel("s:" + s.id, s.owner_asks, s.ask || {}, sessionOf(s.orchestrator), s.id, rs) : idle}${journalPanel(s)}</div>
       <aside class="task-side">${linksPanel(s)}${contourPanel(s)}${stagesPanel(s)}</aside>
     </div>`;
 }
@@ -501,7 +535,7 @@ function generalView(g) {
   return `<a class="back" href="#/">← Все задачи</a>
     <header class="task-head"><div class="task-head-top"><span class="id">вопрос без задачи</span><span class="badge you dot">Ждёт тебя</span></div>
       <h1 class="big">${inline(g.item)}</h1></header>
-    <div class="task-layout one">${askPanel("g:" + g.id, [g.item], g.ask || {}, sessionOf(g.orchestrator), "")}</div>`;
+    <div class="task-layout one">${askPanel("g:" + g.id, [g.item], g.ask || {}, sessionOf(g.orchestrator), "", replyState("", g.orchestrator, true))}</div>`;
 }
 
 const ICONS = {
@@ -573,8 +607,49 @@ function iconLinks(s) {
   return `<span class="ilinks">${out.join("")}</span>`;
 }
 
+function tsMs(ts) {
+  if (!ts) return 0;
+  const v = Date.parse(String(ts).replace(/([+-]\d\d)(\d\d)$/, "$1:$2"));
+  return isNaN(v) ? 0 : v;
+}
+
+function orchOf(name) {
+  return last.orchestrators.find(o => o.name === name) || {};
+}
+
+// What happened to the owner's latest reply on a stream: pending, again (a turn ended and the
+// ask is still there), resolved (the ask left the waiting line), or nothing to show.
+function replyState(streamId, orchName, asked) {
+  const r = [...(last.replies || [])].reverse().find(x => x.ok && x.stream === streamId);
+  if (!r) return null;
+  const sent = tsMs(r.ts), o = orchOf(orchName), turn = tsMs(o.message_ts);
+  const busy = o.session_status === "busy";
+  if (asked) {
+    // A busy orchestrator may still be reading the reply; judge only a turn that has ended.
+    if (turn > sent + 3000 && !busy) return {kind: "again", r};
+    return {kind: "pending", r, reading: busy};
+  }
+  if (turn > sent && Date.now() - sent < 10 * 60000) return {kind: "resolved", r, at: turn};
+  return null;
+}
+
+const streamReply = s => replyState(s.id, s.orchestrator, s.owner_asks.length > 0);
+
+function tracker(rs) {
+  if (!rs) return "";
+  const steps = [
+    ["Отправлено", "done", when(rs.r.ts)],
+    ["Оркестратор читает", rs.kind === "pending" ? (rs.reading ? "now" : "wait") : "done", rs.kind === "pending" && !rs.reading ? "в очереди" : ""],
+    [rs.kind === "again" ? "Снова нужен ответ" : "Вопрос снят", rs.kind === "resolved" ? "done" : rs.kind === "again" ? "alert" : "", rs.kind === "resolved" ? when(rs.at) : ""],
+  ];
+  return `<ol class="tracker">${steps.map(([t, st, sub]) => `<li class="${st}"><i></i><span>${esc(t)}</span>${sub ? `<small>${esc(sub)}</small>` : ""}</li>`).join("")}</ol>`;
+}
+
 function statusIcon(s) {
   const one = (name, title, cls = "") => `<span class="sicon ${cls}" title="${title}">${icon(name)}</span>`;
+  const rs = streamReply(s);
+  if (rs && rs.kind === "pending") return one("send", rs.reading ? "оркестратор читает ответ" : "ответ отправлен", "pending");
+  if (rs && rs.kind === "resolved") return one("check", "вопрос снят", "resolved");
   if (s.closed) return one("check", "закрыта", "muted");
   if (s.owner_asks.length) return one("ask", "ждёт тебя", "you");
   if (s.derived["owed by"] === "the orchestrator") return one("hourglass", "у оркестратора");
@@ -610,12 +685,21 @@ function homeView() {
   const openS = d.streams.filter(s => !s.closed), closedS = d.streams.filter(s => s.closed);
   const nAsks = openS.filter(s => s.owner_asks.length).length + d.general_asks.length;
   const shown = showClosed ? openS.concat(closedS) : openS;
-  const row = s => `<tr class="row" data-href="#/task/${esc(encodeURIComponent(s.id))}">
-      <td class="col-task"><div class="t-line"><span class="id">${esc(s.id)}</span>${titleHtml(s)}</div>
-        ${s.owner_asks.length ? `<div class="row-ask">${s.owner_asks.map(a => inline(dropId(a, s.id))).join(" · ")}</div>` : ""}</td>
+  const row = s => {
+    const rs = streamReply(s);
+    const line = rs && rs.kind === "pending" ? `<div class="row-ask live">${icon("send")}ответ отправлен · ${rs.reading ? "оркестратор читает…" : "ждёт оркестратора…"}</div>`
+      : rs && rs.kind === "resolved" ? `<div class="row-ask ok">${icon("check")}вопрос снят</div>`
+      : s.owner_asks.length ? `<div class="row-ask">${rs && rs.kind === "again" ? "снова нужен ответ · " : ""}${s.owner_asks.map(a => inline(dropId(a, s.id))).join(" · ")}</div>` : "";
+    // Flash a resolved row once, not on every later re-render.
+    const flashKey = rs && rs.kind === "resolved" ? s.id + rs.r.ts : "";
+    const flash = flashKey && !flashed.has(flashKey);
+    if (flash) flashed.add(flashKey);
+    return `<tr class="row ${flash ? "flash" : ""}" data-href="#/task/${esc(encodeURIComponent(s.id))}">
+      <td class="col-task"><div class="t-line"><span class="id">${esc(s.id)}</span>${titleHtml(s)}</div>${line}</td>
       <td class="col-stage">${stageCell(s)}</td><td class="col-status">${statusIcon(s)}</td>
       <td class="col-links">${iconLinks(s)}</td>
       <td class="col-when" title="${esc(when(s.last_ts))}">${esc(short(s.last_ts))}</td></tr>`;
+  };
   const general = d.general_asks.map(g => `<tr class="row" data-href="#/ask/${esc(encodeURIComponent(g.id))}">
       <td class="col-task"><div class="t-line"><span class="id">вопрос</span><span class="t-title">${inline(g.item)}</span></div></td>
       <td class="col-stage"></td><td class="col-status"><span class="sicon you" title="ждёт тебя">${icon("ask")}</span></td>
@@ -669,9 +753,32 @@ function safeRender() {
   }
 }
 
-let pointerDown = false;
+let pointerDown = false, dialogOpen = false;
+
+function dialog({title, body = "", ok = "OK", cancel = "Отмена", danger = false}) {
+  return new Promise(resolve => {
+    const root = document.getElementById("modal-root");
+    root.innerHTML = `<div class="modal-overlay"><div class="modal" role="dialog" aria-modal="true">
+        <h3>${esc(title)}</h3>${body ? `<div class="modal-body">${body}</div>` : ""}
+        <div class="modal-actions">${cancel ? `<button type="button" data-m="0">${esc(cancel)}</button>` : ""}
+          <button type="button" class="primary ${danger ? "danger" : ""}" data-m="1">${esc(ok)}</button></div></div></div>`;
+    dialogOpen = true;
+    const done = v => { dialogOpen = false; root.innerHTML = ""; document.removeEventListener("keydown", key, true); resolve(v); flushRender(); };
+    const key = e => {
+      if (e.key === "Escape") { e.preventDefault(); done(false); }
+      if (e.key === "Enter" && !e.target.matches("[data-m='0']")) { e.preventDefault(); done(true); }
+    };
+    document.addEventListener("keydown", key, true);
+    root.querySelector(".modal-overlay").addEventListener("click", e => {
+      const b = e.target.closest("[data-m]");
+      if (b) done(b.dataset.m === "1");
+      else if (e.target.classList.contains("modal-overlay")) done(false);
+    });
+    root.querySelector("[data-m='1']").focus();
+  });
+}
 // A re-render between mousedown and mouseup swaps the button under the cursor and eats the click.
-const editing = () => pointerDown || document.activeElement?.tagName === "TEXTAREA";
+const editing = () => pointerDown || dialogOpen || document.activeElement?.tagName === "TEXTAREA";
 
 function flushRender() {
   if (pendingRender && !editing()) { pendingRender = false; safeRender(); }
@@ -737,11 +844,11 @@ document.addEventListener("click", async e => {
   const ws = e.target.closest("[data-ws]");
   if (ws) {
     const stream = ws.dataset.stream, action = ws.dataset.ws;
-    if (action === "up" && !confirm(`Запустить task app:up для ${stream}?`)) return;
+    if (action === "up" && !await dialog({title: `Запустить стенд ${stream}?`, body: `<p class="muted">Выполнится <code>task app:up</code> в worktree задачи. Вывод появится в блоке «Стенд».</p>`, ok: "Запустить"})) return;
     busy.set(stream, action); safeRender();
     const {res, data} = await post(`/api/workspace/${action}`, {stream});
     busy.delete(stream);
-    if (!res.ok) alert("Не получилось: " + (data.error || res.status));
+    if (!res.ok) await dialog({title: "Не получилось", body: `<p class="error">${esc(data.error || res.status)}</p>`, ok: "Понятно", cancel: ""});
     lastKey = ""; await refresh();
     return;
   }
@@ -794,8 +901,9 @@ document.addEventListener("submit", async e => {
   if (list.some(a => a.error)) { note("err", "Убери картинки с ошибкой."); return; }
   const images = list.map(a => a.path);
   if (!text && !images.length) { note("err", "Пустой ответ."); return; }
-  const extra = images.length ? `\n\n+ картинок: ${images.length}` : "";
-  if (!confirm(`Отправить оркестратору${f.dataset.stream ? " по " + f.dataset.stream : ""}?\n\n${text}${extra}`)) return;
+  const preview = (text ? `<div class="quote">${esc(text).replace(/\n/g, "<br>")}</div>` : "") +
+    (list.length ? `<div class="thumbs">${list.map(a => `<span class="thumb"><img src="${esc(a.url)}" alt=""></span>`).join("")}</div>` : "");
+  if (!await dialog({title: `Ответ оркестратору${f.dataset.stream ? " · " + f.dataset.stream : ""}`, body: preview, ok: "Отправить"})) return;
   btn.disabled = true; note("", "Отправляю…");
   try {
     const {res, data: r} = await post("/api/reply", {session_id: f.dataset.session, stream: f.dataset.stream, text, images});
@@ -815,8 +923,17 @@ document.addEventListener("submit", async e => {
   }
 });
 
-refresh();
-setInterval(refresh, 5000);
+function anyPending() {
+  if (!last) return false;
+  return last.streams.some(s => (streamReply(s) || {}).kind === "pending")
+    || last.general_asks.some(g => (replyState("", g.orchestrator, true) || {}).kind === "pending");
+}
+
+// Poll fast while a reply is on its way, so the unblock is seen as it happens.
+(async function loop() {
+  await refresh();
+  setTimeout(loop, anyPending() ? 1500 : 5000);
+})();
 </script>
 </body>
 </html>

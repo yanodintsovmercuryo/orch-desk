@@ -5,7 +5,7 @@ import os
 import re
 from concurrent.futures import ThreadPoolExecutor
 
-from . import links, state, transcript, workspace
+from . import deliver, links, state, transcript, workspace
 
 CLOSED_LIMIT = 15
 
@@ -43,6 +43,7 @@ def build(root=None):
         out["orchestrators"].append({
             "name": orch["name"], "session_id": reg.get("session_id", ""), "transcript": path,
             "status_line": status, "message": msg, "message_ts": ts, "owner_items": items, "error": error,
+            "session_status": deliver.session_status(reg.get("session_id", "")),
         })
         for st in state.streams(orch, checkpoints):
             all_streams.append((orch["name"], st, messages, items))

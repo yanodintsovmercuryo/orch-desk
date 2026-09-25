@@ -6,6 +6,7 @@ import re
 import subprocess
 import threading
 import time
+from datetime import datetime
 
 HANDLE_RE = re.compile(r"\bORCA_TERMINAL_HANDLE=(term_[0-9a-f-]+)")
 MAX_LEN = 4000
@@ -19,8 +20,30 @@ def _run(args, timeout=20):
     return res.stdout
 
 
+_agents = {"ts": 0.0, "rows": []}
+_agents_lock = threading.Lock()
+
+
+def agents(max_age=2.0):
+    """`claude agents --json`, reused for a couple of seconds across pollers."""
+    with _agents_lock:
+        if time.time() - _agents["ts"] < max_age:
+            return _agents["rows"]
+    rows = json.loads(_run(["claude", "agents", "--json"]))
+    with _agents_lock:
+        _agents.update(ts=time.time(), rows=rows)
+    return rows
+
+
+def session_status(session_id):
+    try:
+        return next((a.get("status", "") for a in agents() if a.get("sessionId") == session_id), "gone")
+    except Exception:
+        return ""
+
+
 def session_process(session_id):
-    for agent in json.loads(_run(["claude", "agents", "--json"])):
+    for agent in agents(max_age=0):
         if agent.get("sessionId") == session_id:
             return agent
     raise RuntimeError(f"session {session_id} is not running")
@@ -66,7 +89,8 @@ def send(session_id, stream, text, log_path, images=()):
     if len(text) > MAX_LEN:
         raise ValueError(f"reply longer than {MAX_LEN} characters")
     line = format_reply(stream, text, images)
-    record = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "stream": stream, "text": line, "images": list(images)}
+    record = {"ts": datetime.now().astimezone().isoformat(timespec="seconds"), "stream": stream, "text": line,
+              "images": list(images)}
     try:
         target = resolve(session_id)
         record["target"] = target
