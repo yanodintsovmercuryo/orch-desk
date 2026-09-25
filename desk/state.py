@@ -122,6 +122,7 @@ class Stream:
     derived: dict
     events: list = field(default_factory=list)
     error: str = ""
+    prepared: bool = False
 
 
 def read_registry(path):
@@ -148,13 +149,19 @@ def streams(orch, checkpoints):
     for sdir in sorted(glob.glob(os.path.join(orch["dir"], "streams", "*"))):
         sid = os.path.basename(sdir)
         st = Stream(sid, orch["name"], {}, {})
+        card, journal = os.path.join(sdir, "card.md"), os.path.join(sdir, "journal.md")
+        if not os.path.exists(card) and not os.path.exists(journal):
+            # A brief written ahead of the launch: the stream exists only on paper so far.
+            st.prepared = True
+            out.append(st)
+            continue
         try:
-            with open(os.path.join(sdir, "card.md"), encoding="utf-8") as f:
+            with open(card, encoding="utf-8") as f:
                 st.header, st.derived = parse_card(f.read())
         except OSError as e:
             st.error = f"card.md: {e}"
         try:
-            with open(os.path.join(sdir, "journal.md"), encoding="utf-8") as f:
+            with open(journal, encoding="utf-8") as f:
                 st.events = parse_journal(f.read(), checkpoints)
         except OSError as e:
             st.error = (st.error + "; " if st.error else "") + f"journal.md: {e}"

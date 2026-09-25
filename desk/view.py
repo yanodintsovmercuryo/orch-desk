@@ -72,6 +72,7 @@ def build(root=None):
         prompt = None if closed else terminal.waiting_prompt(st.header.get("repository", ""))
         return {
             "prompt": prompt,
+            "prepared": st.prepared,
             "workspace": contour,
             "id": st.id, "orchestrator": orch_name, "header": st.header, "derived": st.derived,
             "error": st.error, "progress": {"index": idx, "total": len(state.ORDERED), "intent_moved": moved},

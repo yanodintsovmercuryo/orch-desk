@@ -60,6 +60,14 @@ class StateTest(unittest.TestCase):
         self.assertEqual(ms["launched"], "2026-09-24T17:11:59Z")
         self.assertIsNone(ms["pre-merge"])
 
+    def test_a_brief_only_stream_is_prepared_not_broken(self):
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, "streams", "MER-9"))
+            open(os.path.join(d, "streams", "MER-9", "brief.md"), "w").close()
+            [st] = state.streams({"dir": d, "name": "o/n"}, CHECKPOINTS)
+            self.assertTrue(st.prepared)
+            self.assertEqual(st.error, "")
+
     def test_plugin_table_is_read_when_present(self):
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "team-skills-orchestrator", "9.9.9", "scripts", "lib")

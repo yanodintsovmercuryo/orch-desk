@@ -626,11 +626,11 @@ function taskView(s) {
     : "";
   return `<a class="back" href="#/">← Все задачи</a>
     <header class="task-head"><div class="task-head-top"><span class="id">${esc(s.id)}</span>${statusCell(s)}
-      <span class="st muted">${icon("clock")}${esc(ago(s.last_ts))}</span>${splitTitle(titleOf(s)).tags.filter(t => t !== repoOf(s)).map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
+      ${s.last_ts ? `<span class="st muted">${icon("clock")}${esc(ago(s.last_ts))}</span>` : ""}${splitTitle(titleOf(s)).tags.filter(t => t !== repoOf(s)).map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
       <h1 class="big">${repoOf(s) ? `<span class="repo">${esc(repoOf(s))}</span>` : ""}${esc(splitTitle(titleOf(s)).title)}</h1>${err}</header>
     <div class="task-layout">
-      <div class="task-main">${promptPanel(s)}${s.owner_asks.length ? askPanel("s:" + s.id, s.owner_asks, s.ask || {}, sessionOf(s.orchestrator), s.id, rs) : idle}${notePanel(s)}${journalPanel(s)}</div>
-      <aside class="task-side">${linksPanel(s)}${contourPanel(s)}${stagesPanel(s)}</aside>
+      <div class="task-main">${promptPanel(s)}${s.owner_asks.length ? askPanel("s:" + s.id, s.owner_asks, s.ask || {}, sessionOf(s.orchestrator), s.id, rs) : idle}${notePanel(s)}${s.prepared ? "" : journalPanel(s)}</div>
+      <aside class="task-side">${linksPanel(s)}${contourPanel(s)}${s.prepared ? "" : stagesPanel(s)}</aside>
     </div>`;
 }
 
@@ -770,12 +770,14 @@ function statusIcon(s) {
   if (s.closed) return one("check", "закрыта", "muted");
   if (s.prompt && !s.prompt.error) return one("terminal", "ждёт ввода в терминале", "you");
   if (s.owner_asks.length) return one("ask", "ждёт тебя", "you");
+  if (s.prepared) return one("hourglass", "готовится к запуску", "muted");
   if (s.derived["owed by"] === "the orchestrator") return one("hourglass", "у оркестратора");
   return one("activity", "в работе", "muted");
 }
 
 function statusCell(s) {
   if (s.closed) return `<span class="st muted">${icon("check")}закрыта</span>`;
+  if (s.prepared && !s.owner_asks.length) return `<span class="st muted">${icon("hourglass")}готовится к запуску</span>`;
   if (s.prompt && !s.prompt.error) return `<span class="badge you">${icon("terminal")}Ждёт ввода</span>`;
   if (s.owner_asks.length) return `<span class="badge you">${icon("ask")}Ждёт тебя</span>`;
   if (s.derived["owed by"] === "the orchestrator") return `<span class="st">${icon("hourglass")}у оркестратора</span>`;
@@ -783,6 +785,7 @@ function statusCell(s) {
 }
 
 function stageCell(s) {
+  if (s.prepared) return `<div class="stage"><span class="stage-label">готовится к запуску</span></div>`;
   const idx = s.progress.index;
   const bars = last.checkpoints.map((c, i) =>
     `<i class="${i < idx || (i === idx && s.closed) ? "done" : i === idx ? "now" : ""}" title="${esc(STAGES[c] || c)}"></i>`).join("");
