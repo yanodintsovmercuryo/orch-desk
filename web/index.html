@@ -264,6 +264,12 @@ tr.flash td { animation: flash 2.4s ease-out; }
 .tracker li.wait { border-color: var(--text-muted); color: var(--text-secondary); }
 .tracker li.alert { border-color: var(--danger); color: var(--danger); }
 
+#toast-root { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 900; pointer-events: none; }
+.toast { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; background: var(--text-primary); color: var(--text-inverse); font-size: var(--text-sm); font-weight: 500; box-shadow: 0 12px 30px -10px rgba(0,0,0,.7); animation: drop .2s ease; }
+.toast .ico { width: 14px; height: 14px; }
+.toast.out { opacity: 0; transform: translateY(-6px); transition: opacity .25s, transform .25s; }
+@keyframes drop { from { opacity: 0; transform: translateY(-8px); } }
+
 @media (max-width: 899px) {
   .tasks .col-stage { display: none; }
   .task-layout { grid-template-columns: 1fr; }
@@ -277,6 +283,7 @@ tr.flash td { animation: flash 2.4s ease-out; }
 </head>
 <body>
 <div id="modal-root"></div>
+<div id="toast-root"></div>
 <main class="page" id="app"><div class="empty">Загружаю…</div></main>
 <script>
 const STAGES = {"launched": "Запуск", "spec-drafted": "Спецификация", "plan-passed": "План", "gate-round": "Ревью",
@@ -723,16 +730,36 @@ function homeView() {
     ${replies ? `<section class="panel"><div class="panel-body">${det("replies", `${icon("send")} отправленные ответы · ${d.replies.length}`, `<ul class="log">${replies}</ul>`)}</div></section>` : ""}`;
 }
 
+// A stale link: go to the task list and say why, instead of an empty page.
+function leave(message) {
+  history.replaceState(null, "", location.pathname + location.search + "#/");
+  toast(message);
+  render();
+}
+
+let toastTimer = 0;
+function toast(message) {
+  const root = document.getElementById("toast-root");
+  root.innerHTML = `<div class="toast">${icon("check")}<span>${esc(message)}</span></div>`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    const t = root.querySelector(".toast");
+    if (t) { t.classList.add("out"); setTimeout(() => { root.innerHTML = ""; }, 250); }
+  }, 4000);
+}
+
 function render() {
   if (!last) return;
   const r = route();
   let html;
   if (r.kind === "task") {
     const s = last.streams.find(x => x.id === r.id);
-    html = s ? taskView(s) : `<a class="back" href="#/">← Все задачи</a><div class="empty">Задача ${esc(r.id)} не найдена.</div>`;
+    if (!s) return leave(`Задачи ${r.id} больше нет в работе`);
+    html = taskView(s);
   } else if (r.kind === "ask") {
     const g = last.general_asks.find(x => x.id === r.id);
-    html = g ? generalView(g) : `<a class="back" href="#/">← Все задачи</a><div class="empty">Вопрос уже снят.</div>`;
+    if (!g) return leave("Этот вопрос уже снят");
+    html = generalView(g);
   } else {
     html = homeView();
   }
