@@ -74,21 +74,31 @@ def resolve(session_id):
     return {"handle": handle, "pid": agent["pid"], "status": agent.get("status"), "title": term.get("title")}
 
 
-def format_reply(stream, text, images=()):
-    # One line: a newline typed into the agent prompt would submit early.
-    body = " / ".join(l.strip() for l in text.strip().splitlines() if l.strip())
+def _one_line(text):
+    return " / ".join(l.strip() for l in str(text).strip().splitlines() if l.strip())
+
+
+def format_reply(stream, text, images=(), asks=()):
+    # One line: a newline typed into the agent prompt would submit early. The task and the
+    # question it answers always travel with the reply, so a bare "Принимаю" is never ambiguous.
+    body = _one_line(text)
     if images:
         body = (body + " · " if body else "") + "картинки: " + " ".join(images)
-    prefix = f"[desk] {stream}: " if stream else "[desk] "
-    return prefix + body
+    about = "; ".join(f"«{_one_line(a)[:300]}»" for a in asks if _one_line(a))
+    head = "[desk]" + (f" {stream}" if stream else "")
+    if about:
+        head += (" · на " if stream else " на ") + about
+    return f"{head}: {body}"
 
 
-def send(session_id, stream, text, log_path, images=()):
+def send(session_id, stream, text, log_path, images=(), asks=()):
     if not text.strip() and not images:
         raise ValueError("empty reply")
+    if not stream and not any(_one_line(a) for a in asks):
+        raise ValueError("a reply without a task must name the question it answers")
     if len(text) > MAX_LEN:
         raise ValueError(f"reply longer than {MAX_LEN} characters")
-    line = format_reply(stream, text, images)
+    line = format_reply(stream, text, images, asks)
     record = {"ts": datetime.now().astimezone().isoformat(timespec="seconds"), "stream": stream, "text": line,
               "images": list(images)}
     try:

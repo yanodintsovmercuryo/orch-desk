@@ -102,7 +102,10 @@ class Handler(BaseHTTPRequestHandler):
             if stream and stream not in orch["streams"]:
                 return self._send(400, {"error": "unknown stream"})
             images = uploads.checked(body.get("images") or [])
-            record = deliver.send(session_id, stream, text, REPLIES, images)
+            asks = [a for a in (body.get("asks") or []) if isinstance(a, str)][:5]
+            if stream and not asks:
+                asks = view.current_asks(orch["name"], stream)
+            record = deliver.send(session_id, stream, text, REPLIES, images, asks)
             return self._send(200 if record.get("ok") else 502, record)
         except ValueError as e:
             return self._send(400, {"error": str(e)})

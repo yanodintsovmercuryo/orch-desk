@@ -404,9 +404,9 @@ function attachList(key) {
       <button type="button" class="thumb-x" data-unattach="${i}" title="Убрать">×</button></span>`).join("");
 }
 
-function replyForm(key, sessionId, stream) {
+function replyForm(key, sessionId, stream, asks) {
   const rc = receipts.get(key) || {};
-  return `<form class="reply stack" data-key="${esc(key)}" data-session="${esc(sessionId)}" data-stream="${esc(stream)}">
+  return `<form class="reply stack" data-key="${esc(key)}" data-session="${esc(sessionId)}" data-stream="${esc(stream)}" data-asks="${esc(JSON.stringify(asks || []))}">
     <textarea name="text" placeholder="Ответ оркестратору${stream ? " по " + esc(stream) : ""}. Картинку можно вставить ⌘V или перетащить">${esc(drafts.get(key) || "")}</textarea>
     <div class="thumbs">${attachList(key)}</div>
     <div class="row-actions">
@@ -455,7 +455,7 @@ function askPanel(key, items, ask, session, stream, rs) {
     <div class="panel-body stack-lg">${track}
       <div class="question">${items.map(i => `<div>${inline(i)}</div>`).join("")}</div>
       <div>${origin}</div>${updates}
-      <div><div class="section-label">Ответ</div>${replyForm(key, session, stream)}</div>
+      <div><div class="section-label">Ответ</div>${replyForm(key, session, stream, items)}</div>
     </div></section>`;
 }
 
@@ -929,13 +929,14 @@ async function sendReply(f, quick) {
   if (list.some(a => !a.path && !a.error)) { note("err", "Картинка ещё загружается."); return; }
   if (list.some(a => a.error)) { note("err", "Убери картинки с ошибкой."); return; }
   const images = list.map(a => a.path);
+  const asks = JSON.parse(f.dataset.asks || "[]");
   if (!text && !images.length) { note("err", "Пустой ответ."); return; }
-  const preview = (text ? `<div class="quote">${esc(text).replace(/\n/g, "<br>")}</div>` : "") +
+  const preview = (asks.length ? `<p class="muted">На вопрос: ${asks.map(a => `«${inline(a)}»`).join("; ")}</p>` : "") + (text ? `<div class="quote">${esc(text).replace(/\n/g, "<br>")}</div>` : "") +
     (list.length ? `<div class="thumbs">${list.map(a => `<span class="thumb"><img src="${esc(a.url)}" alt=""></span>`).join("")}</div>` : "");
   if (!await dialog({title: `Ответ оркестратору${f.dataset.stream ? " · " + f.dataset.stream : ""}`, body: preview, ok: "Отправить"})) return;
   btn.disabled = true; note("", "Отправляю…");
   try {
-    const {res, data: r} = await post("/api/reply", {session_id: f.dataset.session, stream: f.dataset.stream, text, images});
+    const {res, data: r} = await post("/api/reply", {session_id: f.dataset.session, stream: f.dataset.stream, text, images, asks});
     if (res.ok && r.ok) {
       note("", "Доставлено оркестратору · " + new Date().toLocaleTimeString("ru-RU"));
       if (!quick) {

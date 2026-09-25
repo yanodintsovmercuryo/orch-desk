@@ -121,6 +121,14 @@ def build_orchestrators(root=None):
     return out
 
 
+def current_asks(orch_name, stream_id):
+    """Owner asks naming the stream in the orchestrator's latest waiting line."""
+    for o in build()["orchestrators"]:
+        if o["name"] == orch_name:
+            return [i for i in o["owner_items"] if stream_id in transcript.refs(i)[0]]
+    return []
+
+
 def stream_repo(stream_id, root=None):
     """The worktree a live stream's card names; empty for an unknown stream."""
     for orch in state.orchestrators(root):

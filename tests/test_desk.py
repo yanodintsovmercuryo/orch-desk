@@ -184,7 +184,17 @@ class DeliverTest(unittest.TestCase):
 
     def test_reply_is_one_prefixed_line(self):
         self.assertEqual(deliver.format_reply("MER-1", "принимаю\n\n  мержи \n"), "[desk] MER-1: принимаю / мержи")
-        self.assertEqual(deliver.format_reply("", "ok"), "[desk] ok")
+
+    def test_reply_names_the_question_it_answers(self):
+        self.assertEqual(deliver.format_reply("MER-1", "Принимаю", asks=["приёмка вида #120"]),
+                         "[desk] MER-1 · на «приёмка вида #120»: Принимаю")
+        self.assertEqual(deliver.format_reply("", "Принимаю", asks=["два ADR\nпо MER-9"]),
+                         "[desk] на «два ADR / по MER-9»: Принимаю")
+
+    def test_reply_without_task_or_question_is_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            with self.assertRaises(ValueError):
+                deliver.send("s", "", "Принимаю", os.path.join(d, "r.jsonl"))
 
     def test_handle_from_process_environment(self):
         env = "claude ORCA_AGENT_HOOK_ENDPOINT=/Users/x/Library/Application Support/y ORCA_TERMINAL_HANDLE=term_2425f0b2-aa1b ORCA_TAB_ID=z"
