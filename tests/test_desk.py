@@ -3,7 +3,7 @@ import os
 import tempfile
 import unittest
 
-from desk import deliver, source, state, terminal, transcript, uploads, view
+from desk import asks, deliver, source, state, terminal, transcript, uploads, view
 
 CHECKPOINTS = state.load_checkpoints(pattern="/nonexistent/*")
 
@@ -301,3 +301,50 @@ class DeliverTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SupervisorTest(unittest.TestCase):
+    def test_nudges_and_notifies_on_idle_capacity_silence_unread_and_new_asks(self):
+        from datetime import datetime, timedelta, timezone
+        from desk import supervisor
+        with tempfile.TemporaryDirectory() as d:
+            saved = (supervisor.ROOT, supervisor.CONFIG, supervisor.MEMORY, supervisor.EVENTS, asks.ROOT, asks.DIR)
+            supervisor.ROOT = asks.ROOT = d
+            asks.DIR = os.path.join(d, "asks")
+            supervisor.CONFIG, supervisor.MEMORY, supervisor.EVENTS = (os.path.join(d, n) for n in ("c.json", "m.json", "e.jsonl"))
+            ago = lambda m: (datetime.now(timezone.utc) - timedelta(minutes=m)).isoformat()
+            data = {"orchestrators": [{"name": "o/d", "session_id": "S", "message_ts": ago(30)}],
+                    "streams": [{"id": "MER-1", "orchestrator": "o/d", "closed": False, "last_ts": ago(60),
+                                 "header": {"repository": "/w/1"}, "prompt": None},
+                                {"id": "MER-2", "orchestrator": "o/d", "closed": False, "last_ts": ago(5),
+                                 "header": {"repository": "/w/2"}, "prompt": None}]}
+            said, told = [], []
+            patches = [(supervisor.view, "build", lambda: data),
+                       (supervisor.deliver, "agents", lambda max_age=0: [
+                           {"sessionId": "S", "status": "idle"}, {"sessionId": "x", "cwd": "/w/1", "status": "idle"}]),
+                       (supervisor.deliver, "poke", lambda sid, text: said.append(text) or {"ok": True}),
+                       (supervisor, "notify", lambda t, x: told.append(t) or True)]
+            originals = [(obj, name, getattr(obj, name)) for obj, name, _ in patches]
+            for obj, name, fn in patches:
+                setattr(obj, name, fn)
+            try:
+                a = asks.create("вопрос?", task="MER-9")
+                b = asks.create("отвечен?")
+                asks.answer(b["id"], "да")
+                with open(asks._path(b["id"])) as f:
+                    rec = json.load(f)
+                rec["answer"]["ts"] = ago(10)
+                asks._write(rec)
+                supervisor.Supervisor().tick()
+                self.assertTrue(any("непрочитанные ответы" in t for t in said))
+                self.assertTrue(any("в работе 2 из 4" in t for t in said))
+                self.assertTrue(any("MER-1 молчит" in t for t in said))
+                self.assertFalse(any("MER-2" in t for t in said))
+                self.assertIn(f"Вопрос {a['id']} · MER-9", told)
+                said.clear(); told.clear()
+                supervisor.Supervisor().tick()
+                self.assertEqual((said, told), ([], []), "a second tick inside the rate window stays quiet")
+            finally:
+                for obj, name, fn in originals:
+                    setattr(obj, name, fn)
+                (supervisor.ROOT, supervisor.CONFIG, supervisor.MEMORY, supervisor.EVENTS, asks.ROOT, asks.DIR) = saved

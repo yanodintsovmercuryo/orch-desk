@@ -325,6 +325,13 @@ pre.code .tx { white-space: pre; color: var(--text-primary); }
 .adv-tools { margin: 0; padding-left: 18px; font-size: var(--text-xs); color: var(--text-muted); }
 .adv-tools li { word-break: break-all; }
 
+.opt.chosen { box-shadow: inset 3px 0 0 var(--text-primary); }
+.ask-links { margin: 0; padding-left: 18px; font-size: var(--text-sm); display: grid; gap: 4px; }
+#dlg-note { margin-top: 10px; min-height: 70px; }
+
+.viewer-body.panning, .viewer-body.panning img { cursor: grabbing; user-select: none; }
+.shot-scroll img { -webkit-user-drag: none; }
+
 @media (max-width: 899px) {
   .tasks .col-stage { display: none; }
   .task-layout { grid-template-columns: 1fr; }
@@ -663,6 +670,65 @@ async function loadAdvisor(id) {
   if (running) advisorWasRunning.add(id);
 }
 
+const DESK_STEPS = [["answered", "Ответ отправлен"], ["consumed", "Оркестратор прочитал"], ["done", "Выполнено"]];
+
+function deskTracker(a) {
+  if (a.status === "open") return "";
+  const at = st => (a.history.find(h => h.status === st) || {}).ts;
+  if (a.status === "withdrawn") {
+    const h = a.history[a.history.length - 1];
+    return `<ol class="tracker"><li class="alert"><i></i><span>Вопрос снят</span><small>${esc(when(h.ts))}${h.note ? " · " + esc(h.note) : ""}</small></li></ol>`;
+  }
+  const order = ["answered", "consumed", "done"], reached = order.indexOf(a.status);
+  return `<ol class="tracker">${DESK_STEPS.map(([st, label], i) => {
+    const cls = i <= reached ? "done" : i === reached + 1 ? "now" : "";
+    const note = st === "done" ? ((a.history.find(h => h.status === "done") || {}).note || "") : "";
+    return `<li class="${cls}"><i></i><span>${label}</span><small>${at(st) ? esc(when(at(st))) : ""}${note ? " · " + inline(note) : ""}</small></li>`;
+  }).join("")}</ol>`;
+}
+
+function deskAskPanel(a) {
+  const live = a.status === "open" || a.status === "answered";
+  const ans = a.answer || {};
+  const opts = (a.options || []).map(o => `<button type="button" class="opt ${o.key === a.recommend ? "rec" : ""} ${ans.option === o.key ? "chosen" : ""}"
+      data-desk-opt="${esc(o.key)}" data-ask="${esc(a.id)}" data-label="${esc(o.label)}" ${live ? "" : "disabled"}>
+      <b>${esc(o.key)}. ${inline(o.label)}${o.key === a.recommend ? " <em>рекомендует</em>" : ""}${ans.option === o.key ? " <em>твой выбор</em>" : ""}</b>
+      ${o.effect ? `<small>${inline(o.effect)}</small>` : ""}</button>`).join("");
+  const key = "d:" + a.id;
+  const form = live ? `<form class="reply desk-form stack" data-key="${esc(key)}" data-ask="${esc(a.id)}">
+      <textarea placeholder="${a.options.length ? "Свой ответ или комментарий к варианту" : "Твой ответ"} · ⌘V — картинка">${esc(drafts.get(key) || "")}</textarea>
+      <div class="thumbs">${attachList(key)}</div>
+      <div class="row-actions"><button type="submit" class="primary">Ответить</button>
+        <label class="attach-btn" title="Прикрепить картинку">${icon("image")}<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden data-attach></label></div></form>` : "";
+  const heading = {open: "Вопрос к тебе", answered: "Ответ отправлен", consumed: "Оркестратор прочитал ответ", done: "Вопрос закрыт", withdrawn: "Вопрос снят"}[a.status] || "Вопрос";
+  return `<section class="panel ask-panel"><div class="panel-head"><h2>${icon("ask")}${heading}</h2>
+      <span class="right muted small">${esc(a.id)} · ${esc(when(a.created))}</span></div>
+    <div class="panel-body stack-lg">${deskTracker(a)}
+      <div class="question">${withTitles(inline(a.question))}</div>
+      ${a.context ? `<div class="quote">${md(a.context)}</div>` : ""}
+      ${(a.links || []).length ? `<ul class="ask-links">${a.links.map(l => `<li>${inline(l)}</li>`).join("")}</ul>` : ""}
+      ${opts ? `<div class="opts">${opts}</div>` : ""}
+      ${a.recommend && a.why ? `<p class="muted small" style="margin:0">Почему ${esc(a.recommend)}: ${inline(a.why)}</p>` : ""}
+      ${ans.ts ? `<div class="quote"><b>Твой ответ</b> · ${esc(when(ans.ts))}${ans.option ? ` · вариант ${esc(ans.option)}` : ""}${ans.text ? `<br>${inline(ans.text)}` : ""}${(ans.images || []).length ? `<br>${ans.images.map(p => inline(p)).join(" ")}` : ""}</div>` : ""}
+      ${form}</div></section>`;
+}
+
+function deskAskView(a) {
+  return `<a class="back" href="#/">← Все задачи</a>
+    <header class="task-head"><div class="task-head-top"><span class="id">${a.task ? `по ${linkify(a.task)}` : "вопрос без задачи"}</span>
+      ${a.status === "open" ? `<span class="badge you">${icon("ask")}Ждёт тебя</span>` : ""}</div>
+      <h1 class="big">${withTitles(inline(a.question))}</h1></header>
+    <div class="task-layout one">${deskAskPanel(a)}</div>`;
+}
+
+async function answerDesk(id, option, text, images) {
+  const {res, data} = await post("/api/asks/answer", {id, option, text, images});
+  if (!res.ok) { await dialog({title: "Ответ не сохранён", body: `<p class="error">${esc(data.error || res.status)}</p>`, ok: "Понятно", cancel: ""}); return false; }
+  toast(data.nudge && data.nudge.ok ? "Ответ сохранён, оркестратор получил сигнал" : "Ответ сохранён; оркестратору напомнит надсмотрщик");
+  lastKey = ""; await refresh();
+  return true;
+}
+
 function notePanel(s) {
   if (s.closed) return "";
   return `<section class="panel"><div class="panel-head"><h2>${icon("pen")}Комментарий</h2>
@@ -744,7 +810,7 @@ function taskView(s) {
       ${s.last_ts ? `<span class="st muted">${icon("clock")}${esc(ago(s.last_ts))}</span>` : ""}${splitTitle(titleOf(s)).tags.filter(t => t !== repoOf(s)).map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
       <h1 class="big">${repoOf(s) ? `<span class="repo">${esc(repoOf(s))}</span>` : ""}${esc(splitTitle(titleOf(s)).title)}</h1>${err}</header>
     <div class="task-layout">
-      <div class="task-main">${promptPanel(s)}${s.owner_asks.length ? askPanel("s:" + s.id, s.owner_asks, s.ask || {}, sessionOf(s.orchestrator), s.id, rs) : idle}${notePanel(s)}${advisorPanel(s)}${s.prepared ? "" : journalPanel(s)}</div>
+      <div class="task-main">${promptPanel(s)}${(s.deskAsks || []).map(deskAskPanel).join("")}${s.owner_asks.length ? askPanel("s:" + s.id, s.owner_asks, s.ask || {}, sessionOf(s.orchestrator), s.id, rs) : idle}${notePanel(s)}${advisorPanel(s)}${s.prepared ? "" : journalPanel(s)}</div>
       <aside class="task-side">${linksPanel(s)}${contourPanel(s)}${s.prepared ? "" : stagesPanel(s)}</aside>
     </div>`;
 }
@@ -878,10 +944,36 @@ function tracker(rs) {
   return `<ol class="tracker">${steps.map(([t, st, sub]) => `<li class="${st}"><i></i><span>${esc(t)}</span>${sub ? `<small>${esc(sub)}</small>` : ""}</li>`).join("")}</ol>`;
 }
 
+const LIVE_ASK = a => ["open", "answered", "consumed"].includes(a.status);
+
+// Desk asks are the source of truth; a waiting-line ask is kept only while no desk record covers it.
+function prepare(d) {
+  const asksList = d.desk_asks || [];
+  const openIds = new Set(d.streams.filter(s => !s.closed).map(s => s.id));
+  d.streams.forEach(s => {
+    s.deskAsks = asksList.filter(a => a.task === s.id);
+    if (s.deskAsks.some(LIVE_ASK)) { s.owner_asks = []; s.ask = {}; }
+  });
+  d.deskGeneral = asksList.filter(a => !a.task || !openIds.has(a.task));
+  d.general_asks = (d.general_asks || []).filter(g => !asksList.some(a => LIVE_ASK(a)
+    && ((a.task && g.item.includes(a.task)) || similar(a.question, g.item))));
+}
+
+function deskState(list) {
+  if (list.some(a => a.status === "open")) return "open";
+  if (list.some(a => a.status === "answered" || a.status === "consumed")) return "pending";
+  if (list.some(a => a.status === "done" || a.status === "withdrawn")) return "resolved";
+  return "";
+}
+
 function statusIcon(s) {
   const one = (name, title, cls = "") => `<span class="sicon ${cls}" title="${title}">${icon(name)}</span>`;
+  const ds = deskState(s.deskAsks || []);
+  if (ds === "open") return one("ask", "ждёт тебя", "you");
+  if (ds === "pending") return one("send", "ответ у оркестратора", "pending");
   const rs = streamReply(s);
   if (rs && rs.kind === "pending") return one("send", rs.reading ? "оркестратор читает ответ" : "ответ отправлен", "pending");
+  if (ds === "resolved") return one("check", "вопрос закрыт", "resolved");
   if (rs && rs.kind === "resolved") return one("check", "вопрос снят", "resolved");
   if (s.closed) return one("check", "закрыта", "muted");
   if (s.prompt && !s.prompt.error) return one("terminal", "ждёт ввода в терминале", "you");
@@ -895,6 +987,9 @@ function statusCell(s) {
   if (s.closed) return `<span class="st muted">${icon("check")}закрыта</span>`;
   if (s.prepared && !s.owner_asks.length) return `<span class="st muted">${icon("hourglass")}готовится к запуску</span>`;
   if (s.prompt && !s.prompt.error) return `<span class="badge you">${icon("terminal")}Ждёт ввода</span>`;
+  const ds = deskState(s.deskAsks || []);
+  if (ds === "open") return `<span class="badge you">${icon("ask")}Ждёт тебя</span>`;
+  if (ds === "pending") return `<span class="st">${icon("send")}ответ у оркестратора</span>`;
   if (s.owner_asks.length) return `<span class="badge you">${icon("ask")}Ждёт тебя</span>`;
   if (s.derived["owed by"] === "the orchestrator") return `<span class="st">${icon("hourglass")}у оркестратора</span>`;
   return `<span class="st muted">${icon("activity")}в работе</span>`;
@@ -918,15 +1013,34 @@ function dropId(text, id) {
   return String(text).replace(new RegExp(`\\s*\\(${id}\\)`, "g"), "").trim();
 }
 
+const EVENT_KIND = {nudge: "сигнал оркестратору", notify: "уведомление тебе", error: "ошибка"};
+
+function supervisorPanel(sv) {
+  if (!sv) return "";
+  const c = sv.config;
+  const toggle = (key, label) => `<button type="button" class="${c[key] ? "on" : ""}" data-sv="${key}">${label}</button>`;
+  const rows = (sv.events || []).map(e => `<li class="${e.kind === "error" || e.sent === false ? "note" : ""}"><span>${esc(when(e.ts))}</span>
+      <div><span class="muted">${esc(EVENT_KIND[e.kind] || e.kind)}${e.sent === false ? " · не доставлен" : ""}</span> · ${inline(e.text)}</div></li>`).join("");
+  return `<section class="panel"><div class="panel-body">${det("supervisor", `${icon("activity")} надсмотрщик · ${(sv.events || []).length ? esc(short((sv.events[0] || {}).ts)) + " назад последнее событие" : "событий пока нет"}`,
+    `<div class="row-actions" style="margin-bottom:12px"><span class="seg">${toggle("nudge", "сигналы оркестратору")}${toggle("notify", "уведомления мне")}</span>
+      <span class="muted small">стримов в работе держать:</span>
+      <span class="seg">${[2, 3, 4, 5, 6].map(n => `<button type="button" class="${c.wip === n ? "on" : ""}" data-sv-wip="${n}">${n}</button>`).join("")}</span></div>
+     ${rows ? `<ul class="log">${rows}</ul>` : `<span class="muted small">Пока тихо.</span>`}`)}</div></section>`;
+}
+
 function homeView() {
   const d = last;
   const openS = d.streams.filter(s => !s.closed), closedS = d.streams.filter(s => s.closed);
-  const nAsks = openS.filter(s => s.owner_asks.length || (s.prompt && !s.prompt.error)).length + d.general_asks.length;
+  const nAsks = openS.filter(s => s.owner_asks.length || (s.prompt && !s.prompt.error) || (s.deskAsks || []).some(a => a.status === "open")).length
+    + d.general_asks.length + (d.deskGeneral || []).filter(a => a.status === "open").length;
   const shown = showClosed ? openS.concat(closedS) : openS;
   const row = s => {
     const rs = streamReply(s);
     const pq = s.prompt && !s.prompt.error ? (s.prompt.question[1] || s.prompt.question[0] || "вопрос в терминале") : "";
-    const line = pq ? `<div class="row-ask live">${icon("terminal")}ждёт ввода в терминале: ${esc(pq)}</div>`
+    const da = (s.deskAsks || []).filter(LIVE_ASK);
+    const deskLine = da.length ? `<div class="row-ask ${da.some(a => a.status === "open") ? "" : "live"}">${da.map(a => a.status === "open"
+      ? inline(a.question) : `${icon("send")}${a.status === "consumed" ? "оркестратор прочитал ответ" : "ответ отправлен"} · ${inline(a.question)}`).join(" · ")}</div>` : "";
+    const line = deskLine ? deskLine : pq ? `<div class="row-ask live">${icon("terminal")}ждёт ввода в терминале: ${esc(pq)}</div>`
       : rs && rs.kind === "pending" ? `<div class="row-ask live">${icon("send")}ответ отправлен · ${rs.reading ? "оркестратор читает…" : "ждёт оркестратора…"}</div>`
       : rs && rs.kind === "resolved" ? `<div class="row-ask ok">${icon("check")}вопрос снят</div>`
       : s.owner_asks.length ? `<div class="row-ask">${rs && rs.kind === "again" ? "снова нужен ответ · " : ""}${s.owner_asks.map(a => inline(dropId(a, s.id))).join(" · ")}</div>` : "";
@@ -940,11 +1054,16 @@ function homeView() {
       <td class="col-links">${iconLinks(s)}</td>
       <td class="col-when" title="${esc(when(s.last_ts))}">${esc(short(s.last_ts))}</td></tr>`;
   };
-  const general = d.general_asks.map(g => `<tr class="row" data-href="#/ask/${esc(encodeURIComponent(g.id))}">
+  const deskRows = (d.deskGeneral || []).filter(LIVE_ASK).map(a => `<tr class="row" data-href="#/ask/${esc(a.id)}">
+      <td class="col-task"><div class="t-line"><span class="id">${esc(a.task || a.id)}</span><span class="t-title">${inline(a.question)}</span></div>
+        ${a.status !== "open" ? `<div class="row-ask live">${icon("send")}${a.status === "consumed" ? "оркестратор прочитал ответ" : "ответ отправлен"}</div>` : ""}</td>
+      <td class="col-stage"></td><td class="col-status">${a.status === "open" ? `<span class="sicon you" title="ждёт тебя">${icon("ask")}</span>` : `<span class="sicon pending" title="ответ у оркестратора">${icon("send")}</span>`}</td>
+      <td class="col-links"></td><td class="col-when">${esc(short(a.created))}</td></tr>`).join("");
+  const general = deskRows + d.general_asks.map(g => `<tr class="row" data-href="#/ask/${esc(encodeURIComponent(g.id))}">
       <td class="col-task"><div class="t-line"><span class="id">${esc((g.item.match(/MER-\d+/) || ["вопрос"])[0])}</span><span class="t-title">${inline(g.item)}</span></div></td>
       <td class="col-stage"></td><td class="col-status"><span class="sicon you" title="ждёт тебя">${icon("ask")}</span></td>
       <td class="col-links"></td><td class="col-when">${esc(short((g.ask && g.ask.origin || {}).ts))}</td></tr>`).join("");
-  const needsYou = s => s.owner_asks.length || (s.prompt && !s.prompt.error);
+  const needsYou = s => s.owner_asks.length || (s.prompt && !s.prompt.error) || (s.deskAsks || []).some(a => a.status === "open");
   const waitingRows = shown.filter(needsYou).map(row).join("");
   const rows = shown.filter(s => !needsYou(s)).map(row).join("");
   const orch = d.orchestrators.map(o => {
@@ -961,6 +1080,7 @@ function homeView() {
         <button class="stat toggle-stat" id="toggle-closed" type="button" title="${showClosed ? "Скрыть закрытые" : "Показать закрытые"}">${icon("check")}<b>${closedS.length}</b></button></div></div>
     <section class="panel"><table class="tasks"><tbody>${waitingRows + general + rows || `<tr><td class="empty">Нет задач.</td></tr>`}</tbody></table></section>
     <section class="panel">${orch}</section>
+    ${supervisorPanel(d.supervisor)}
     ${replies ? `<section class="panel"><div class="panel-body">${det("replies", `${icon("send")} отправленные ответы · ${d.replies.length}`, `<ul class="log">${replies}</ul>`)}</div></section>` : ""}`;
 }
 
@@ -982,7 +1102,17 @@ function toast(message) {
   }, 4000);
 }
 
-let viewer = null, code = null;
+let viewer = null, code = null, viewerPan = null, panDrag = null;
+
+window.addEventListener("mousemove", e => {
+  if (!panDrag || !viewerPan) return;
+  viewerPan.move(e.clientX - panDrag.x, e.clientY - panDrag.y);
+  panDrag = {x: e.clientX, y: e.clientY};
+});
+window.addEventListener("mouseup", () => {
+  panDrag = null;
+  if (viewerPan) viewerPan.body.classList.remove("panning");
+});
 
 async function openSource(path, line, end) {
   const res = await fetch(`/api/source?path=${encodeURIComponent(path)}&line=${encodeURIComponent(line || 0)}`, {cache: "no-store"});
@@ -1113,6 +1243,20 @@ function syncScroll(panes) {
     apply();
   }));
   panes.forEach(p => p.querySelector("img")?.addEventListener("load", apply));
+  // Right or middle button held down drags the shots; left click keeps toggling the zoom.
+  viewerPan = {body, move: (dx, dy) => {
+    pos.x = clampTo(pos.x - dx, far("x"));
+    pos.y = clampTo(pos.y - dy, far("y"));
+    apply();
+  }};
+  body.addEventListener("mousedown", e => {
+    if (e.button !== 1 && e.button !== 2) return;
+    e.preventDefault();
+    panDrag = {x: e.clientX, y: e.clientY};
+    body.classList.add("panning");
+  });
+  body.addEventListener("contextmenu", e => e.preventDefault());
+  body.addEventListener("auxclick", e => e.preventDefault());
   apply();
 }
 
@@ -1165,6 +1309,10 @@ function render() {
     if (s) ctxRepo = repoOf(s);
     if (!s) return leave(`Задачи ${r.id} больше нет в работе`);
     html = taskView(s);
+  } else if (r.kind === "ask" && /^ask-\d+$/.test(r.id)) {
+    const a = (last.desk_asks || []).find(x => x.id === r.id);
+    if (!a) return leave("Этот вопрос уже закрыт");
+    html = deskAskView(a);
   } else if (r.kind === "ask") {
     const g = last.general_asks.find(x => x.id === r.id);
     if (!g) return leave("Этот вопрос уже снят");
@@ -1191,7 +1339,7 @@ function safeRender() {
   }
 }
 
-let pointerDown = false, dialogOpen = false, uiVersion = null;
+let pointerDown = false, dialogOpen = false, uiVersion = null, dialogNote = "";
 
 function dialog({title, body = "", ok = "OK", cancel = "Отмена", danger = false}) {
   return new Promise(resolve => {
@@ -1201,7 +1349,7 @@ function dialog({title, body = "", ok = "OK", cancel = "Отмена", danger = 
         <div class="modal-actions">${cancel ? `<button type="button" data-m="0">${esc(cancel)}</button>` : ""}
           <button type="button" class="primary ${danger ? "danger" : ""}" data-m="1">${esc(ok)}</button></div></div></div>`;
     dialogOpen = true;
-    const done = v => { dialogOpen = false; root.innerHTML = ""; document.removeEventListener("keydown", key, true); resolve(v); flushRender(); };
+    const done = v => { dialogNote = (root.querySelector("#dlg-note") || {}).value || ""; dialogOpen = false; root.innerHTML = ""; document.removeEventListener("keydown", key, true); resolve(v); flushRender(); };
     const key = e => {
       if (e.key === "Escape") { e.preventDefault(); done(false); }
       if (e.key === "Enter" && !e.target.matches("[data-m='0']")) { e.preventDefault(); done(true); }
@@ -1234,6 +1382,7 @@ async function refresh() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || res.status);
     updatedAt = new Date();
+    prepare(data);
     // The page was updated on disk: reload once nothing is being typed; drafts survive in sessionStorage.
     if (uiVersion === null) uiVersion = data.ui_version;
     else if (data.ui_version && data.ui_version !== uiVersion && !editing()) { saveDrafts(); location.reload(); return; }
@@ -1283,6 +1432,23 @@ document.addEventListener("click", async e => {
   if (e.target.closest("a")) return;
   const q = e.target.closest("[data-quick]");
   if (q) { sendReply(q.closest("form.reply"), q.dataset.quick); return; }
+  const sv = e.target.closest("[data-sv], [data-sv-wip]");
+  if (sv) {
+    const c = (last.supervisor || {}).config || {};
+    const patch = sv.dataset.svWip ? {wip: Number(sv.dataset.svWip)} : {[sv.dataset.sv]: !c[sv.dataset.sv]};
+    const {res, data} = await post("/api/supervisor/config", patch);
+    if (res.ok) { last.supervisor.config = data; safeRender(); } else toast(data.error || "Не сохранилось");
+    return;
+  }
+  const dopt = e.target.closest("[data-desk-opt]");
+  if (dopt) {
+    const {ask, deskOpt, label} = dopt.dataset;
+    const draft = (drafts.get("d:" + ask) || "").trim();
+    if (!await dialog({title: `Ответ на ${ask}: ${deskOpt}`, body: `<div class="quote">${esc(deskOpt)}. ${esc(label)}</div>
+        <textarea id="dlg-note" placeholder="Комментарий (необязательно)">${esc(draft)}</textarea>`, ok: "Ответить"})) return;
+    if (await answerDesk(ask, deskOpt, dialogNote, [])) { drafts.delete("d:" + ask); saveDrafts(); }
+    return;
+  }
   const am = e.target.closest("[data-adv-model]");
   if (am) { advisorModel.set(am.dataset.stream, am.dataset.advModel); safeRender(); return; }
   const ar = e.target.closest("[data-adv-reset]");
@@ -1357,6 +1523,18 @@ document.addEventListener("click", e => {
 document.addEventListener("submit", async e => {
   e.preventDefault();
   if (e.target.matches("form.adv-form")) return askAdvisor(e.target);
+  if (e.target.matches("form.desk-form")) {
+    const f = e.target, key = f.dataset.key, text = f.querySelector("textarea").value.trim();
+    const list = attachments.get(key) || [];
+    if (list.some(a => !a.path)) return toast("Картинка ещё загружается");
+    if (!text && !list.length) return toast("Пустой ответ");
+    const body = `<div class="quote">${esc(text).replace(/\n/g, "<br>")}</div>` + (list.length ? `<div class="thumbs">${list.map(a => `<span class="thumb"><img src="${esc(a.url)}" alt=""></span>`).join("")}</div>` : "");
+    if (!await dialog({title: `Ответ на ${f.dataset.ask}`, body, ok: "Ответить"})) return;
+    if (await answerDesk(f.dataset.ask, null, text, list.map(a => a.path))) {
+      drafts.delete(key); saveDrafts(); attachments.delete(key);
+    }
+    return;
+  }
   if (!e.target.matches("form.term-text")) return sendReply(e.target, null);
   const f = e.target, text = f.querySelector("textarea").value.trim(), stream = f.dataset.stream;
   if (!text) return;
@@ -1424,6 +1602,7 @@ document.addEventListener("keydown", e => {
 
 function anyPending() {
   if (!last) return false;
+  if ((last.desk_asks || []).some(a => a.status === "answered" || a.status === "consumed")) return true;
   return last.streams.some(s => (streamReply(s) || {}).kind === "pending")
     || last.general_asks.some(g => (replyState("", g.orchestrator, true, g.item) || {}).kind === "pending");
 }

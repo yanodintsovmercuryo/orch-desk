@@ -121,6 +121,17 @@ def send(session_id, stream, text, log_path, images=(), asks=(), kind="reply"):
     return record
 
 
+def poke(session_id, text):
+    """Types one line into the orchestrator's terminal; the receipt says whether Orca accepted it."""
+    if os.environ.get("DESK_NO_POKE"):
+        return {"ok": False, "error": "DESK_NO_POKE: test instance, nothing typed", "text": text}
+    target = resolve(session_id)
+    out = json.loads(_run(["orca", "terminal", "send", "--terminal", target["handle"], "--text", _one_line(text),
+                           "--enter", "--wait-submit", "5", "--json"], timeout=30))
+    sent = ((out.get("result") or {}).get("send") or {})
+    return {"ok": bool(out.get("ok") and sent.get("accepted")), "stages": (sent.get("prompt") or {}).get("stages", [])}
+
+
 def log(log_path, record):
     record = {"ts": datetime.now().astimezone().isoformat(timespec="seconds"), **record}
     with _log_lock, open(log_path, "a", encoding="utf-8") as f:
