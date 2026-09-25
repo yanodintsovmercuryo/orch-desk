@@ -93,6 +93,7 @@ table.tasks { width: 100%; border-collapse: collapse; font-size: var(--text-sm);
 .badge.quiet { border-color: transparent; background: var(--surface-raised); }
 .links { display: flex; gap: var(--space-3); white-space: nowrap; }
 .links a { color: var(--text-secondary); }
+.head-meta .bar { display: inline-grid; width: 112px; margin-right: 8px; vertical-align: middle; }
 .head-meta { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-top: var(--space-3); font-size: var(--text-sm); }
 
 .question { font-size: 1.05rem; font-weight: 500; }
@@ -149,7 +150,26 @@ button:disabled { opacity: .45; cursor: default; }
 .toggle { background: none; border: 0; padding: 0; color: var(--text-secondary); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-strong); }
 .toggle:hover { background: none; color: var(--text-primary); }
 
+.trow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-6); align-items: center; padding: 18px var(--space-6); border-top: 1px solid var(--border); cursor: pointer; }
+.trow:first-child { border-top: 0; }
+.trow:hover { background: var(--surface-hover); }
+.trow-top { display: flex; align-items: center; gap: var(--space-3); }
+.trow-title { font-size: 1.0625rem; font-weight: 500; line-height: 1.35; margin-top: 4px; }
+.trow-ask { margin-top: 6px; font-size: var(--text-sm); color: var(--text-secondary); }
+.trow-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--space-4); margin-top: 10px; font-size: var(--text-sm); color: var(--text-muted); }
+.trow-meta .bar { width: 112px; }
+.linkbtns { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: flex-end; }
+.linkbtn { display: inline-flex; flex-direction: column; justify-content: center; min-width: 124px; padding: 8px 14px; border: 1px solid var(--border-strong); border-radius: var(--r); text-decoration: none; background: var(--surface-card); line-height: 1.3; }
+.linkbtn:hover { border-color: var(--text-muted); background: var(--surface-raised); }
+.linkbtn b { font-weight: 500; font-size: var(--text-sm); color: var(--text-primary); }
+.linkbtn span { font-size: var(--text-xs); color: var(--text-muted); }
+.linkbtn.off { border-style: dashed; cursor: default; }
+.linkbtn.off:hover { background: var(--surface-card); border-color: var(--border-strong); }
+.open-btn { font-size: var(--text-sm); font-weight: 500; padding: 8px 14px; border-radius: var(--r); background: var(--text-primary); color: var(--text-inverse); white-space: nowrap; }
+
 @media (max-width: 899px) {
+  .trow { grid-template-columns: 1fr; gap: var(--space-3); padding: 16px; }
+  .linkbtns { justify-content: flex-start; }
   .page { padding: 16px 16px 32px; }
   .tasks .col-links, .tasks .col-when { display: none; }
   .milestones { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -245,6 +265,35 @@ function linksOf(s, full = true) {
   return `<span class="links">${out.join("")}</span>`;
 }
 
+function linkButtons(s) {
+  const lin = s.links.linear || {}, pr = s.links.pr || {}, w = s.workspace || {};
+  const btn = (label, sub, url) => url
+    ? `<a class="linkbtn" href="${esc(url)}" target="_blank" rel="noopener"><b>${label}</b><span>${esc(sub)}</span></a>`
+    : `<span class="linkbtn off"><b>${label}</b><span>${esc(sub)}</span></span>`;
+  const out = [pr.url ? btn(`PR #${esc(pr.number)}`, (pr.state || "").toLowerCase() || "pull request", pr.url) : btn("PR", "ещё нет", ""),
+    btn("Linear", lin.state || s.header.tracker || s.id, lin.url)];
+  const web = (w.info || {}).web || {}, app = ((w.info || {}).status || {}).application;
+  if (w.available && web.console) out.push(btn("Стенд", {running: "запущен", stopped: "остановлен"}[app] || app || "…", web.console));
+  return `<div class="linkbtns">${out.join("")}</div>`;
+}
+
+function miniStage(s) {
+  const idx = s.progress.index;
+  const bars = last.checkpoints.map((c, i) =>
+    `<i class="${i < idx || (i === idx && s.closed) ? "done" : i === idx ? "now" : ""}"></i>`).join("");
+  const label = idx >= 0 ? STAGES[last.checkpoints[idx]] : "—";
+  return `<span class="bar">${bars}</span><span>${esc(label)} · ${Math.max(idx + 1, 0)}/${last.checkpoints.length}</span>`;
+}
+
+function taskRow(s, withAsk) {
+  return `<div class="trow" data-href="#/task/${esc(encodeURIComponent(s.id))}">
+    <div><div class="trow-top"><span class="id">${esc(s.id)}</span>${withAsk ? "" : statusBadge(s)}</div>
+      <div class="trow-title">${esc(titleOf(s))}</div>
+      ${withAsk ? `<div class="trow-ask">${s.owner_asks.map(inline).join(" · ")}</div>` : ""}
+      <div class="trow-meta">${miniStage(s)}<span>обновлено ${esc(ago(s.last_ts))}</span>${s.progress.intent_moved ? "<span>цель сдвинулась</span>" : ""}</div></div>
+    ${linkButtons(s)}</div>`;
+}
+
 function stage(s) {
   const idx = s.progress.index;
   const bars = last.checkpoints.map((c, i) =>
@@ -338,13 +387,12 @@ function journalPanel(s) {
 
 function taskView(s) {
   const d = s.derived;
-  const meta = [statusBadge(s), linksOf(s),
-    d.phase ? `<span class="muted">фаза: ${esc(d.phase)}</span>` : "",
-    `<span class="muted">событие ${esc(ago(s.last_ts))}</span>`].join("");
+  const meta = [statusBadge(s), `<span class="muted">${miniStage(s)}</span>`,
+    `<span class="muted">обновлено ${esc(ago(s.last_ts))}</span>`].join("");
   const err = s.error ? `<div class="error">${esc(s.error)}</div>` : "";
   return `<a class="back" href="#/">← Все задачи</a>
     <div class="page-head"><div><div class="id">${esc(s.id)}</div><h1 class="big">${esc(titleOf(s))}</h1>
-      <div class="head-meta">${meta}</div>${err}</div></div>
+      <div class="head-meta">${meta}</div>${err}</div>${linkButtons(s)}</div>
     ${s.owner_asks.length ? askPanel("s:" + s.id, s.owner_asks, s.ask || {}, sessionOf(s.orchestrator), s.id) : ""}
     ${contourPanel(s)}${stagesPanel(s)}${journalPanel(s)}`;
 }
@@ -360,31 +408,27 @@ function homeView() {
   const openS = d.streams.filter(s => !s.closed), closedS = d.streams.filter(s => s.closed);
   const waiting = openS.filter(s => s.owner_asks.length);
   const nAsks = waiting.length + d.general_asks.length;
-  const askRows = waiting.map(s => `<a class="list-row" href="#/task/${encodeURIComponent(s.id)}">
-      <div class="list-main"><div class="id">${esc(s.id)}</div><div class="task-title">${esc(titleOf(s))}</div>
-      <div class="list-ask">${s.owner_asks.map(inline).join(" · ")}</div></div>
-      <div class="list-side">${esc(ago((s.ask && s.ask.origin || {}).ts))} →</div></a>`).join("") +
-    d.general_asks.map(g => `<a class="list-row" href="#/ask/${encodeURIComponent(g.id)}">
-      <div class="list-main"><div class="id">без задачи</div><div class="task-title">${inline(g.item)}</div></div>
-      <div class="list-side">${esc(ago((g.ask && g.ask.origin || {}).ts))} →</div></a>`).join("");
-  const shown = showClosed ? openS.concat(closedS) : openS;
-  const rows = shown.map(s => `<tr class="row" data-href="#/task/${esc(encodeURIComponent(s.id))}">
-      <td class="col-task"><div class="id">${esc(s.id)}</div><div class="task-title">${esc(titleOf(s))}</div></td>
-      <td>${stage(s)}</td><td>${statusBadge(s)}</td><td class="col-links">${linksOf(s, false)}</td>
-      <td class="col-when">${esc(ago(s.last_ts))}</td></tr>`).join("");
+  const askRows = waiting.map(s => taskRow(s, true)).join("") +
+    d.general_asks.map(g => `<div class="trow" data-href="#/ask/${esc(encodeURIComponent(g.id))}">
+      <div><div class="trow-top"><span class="id">без задачи</span></div>
+      <div class="trow-title">${inline(g.item)}</div>
+      <div class="trow-meta"><span>спросил ${esc(ago((g.ask && g.ask.origin || {}).ts))}</span></div></div>
+      <span class="open-btn">Открыть</span></div>`).join("");
+  const others = openS.filter(s => !s.owner_asks.length);
+  const shown = showClosed ? others.concat(closedS) : others;
+  const rows = shown.map(s => taskRow(s, false)).join("");
   const orch = d.orchestrators.map(o => `<div class="panel-body"><b>${esc(o.name)}</b> <span class="muted">· ${esc(ago(o.message_ts))}</span>
       ${o.error ? `<div class="error">${esc(o.error)}</div>` : `<div class="sub">${inline(o.status_line || "нет строки статуса")}</div>`}
       <div style="margin-top:8px">${det("orch:" + o.name, "Последнее сообщение", `<div class="quote">${md(o.message)}</div>`)}</div></div>`).join("");
   const replies = [...(d.replies || [])].reverse().map(r =>
     `<li class="${r.ok ? "" : "note"}"><span>${esc(when(r.ts))}</span><span>${r.ok ? "доставлено" : "не доставлено"}</span><span>${esc(r.text)}${r.error ? " — " + esc(r.error) : ""}</span></li>`).join("");
   return `<div class="page-head"><div><h1>Задачи оркестратора</h1><div class="sub" id="sub"></div></div>
-      <div class="stats"><span class="stat"><b>${nAsks}</b>ждут тебя</span><span class="stat"><b>${openS.length}</b>в работе</span><span class="stat"><b>${closedS.length}</b>закрыто</span></div></div>
+      <div class="stats"><span class="stat"><b>${nAsks}</b>ждут тебя</span><span class="stat"><b>${others.length}</b>в работе</span><span class="stat"><b>${closedS.length}</b>закрыто</span></div></div>
     <section class="panel"><div class="panel-head"><h2>Ждут твоего ответа</h2><span class="count">${nAsks}</span></div>
       ${askRows || `<div class="empty">Сейчас никто не ждёт твоего ответа.</div>`}</section>
-    <section class="panel"><div class="panel-head"><h2>Задачи</h2><span class="count">${shown.length}</span>
+    <section class="panel"><div class="panel-head"><h2>${showClosed ? "Остальные и закрытые" : "Остальные в работе"}</h2><span class="count">${shown.length}</span>
       <span class="right"><button class="toggle" id="toggle-closed" type="button">${showClosed ? "Скрыть закрытые" : `Показать закрытые (${closedS.length})`}</button></span></div>
-      <table class="tasks"><thead><tr><th class="col-task">Задача</th><th>Этап</th><th>Статус</th><th class="col-links">Ссылки</th><th class="col-when">Обновлено</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="5" class="empty">Нет задач.</td></tr>`}</tbody></table></section>
+      <div>${rows || `<div class="empty">Все задачи в работе ждут тебя.</div>`}</div></section>
     <section class="panel"><div class="panel-head"><h2>Оркестратор</h2></div>${orch}</section>
     <section class="panel"><div class="panel-head"><h2>Отправленные ответы</h2></div>
       <div class="panel-body">${replies ? `<ul class="log">${replies}</ul>` : `<span class="muted">Пока ничего.</span>`}</div></section>`;
@@ -486,7 +530,7 @@ document.addEventListener("click", async e => {
     lastKey = ""; await refresh();
     return;
   }
-  const row = e.target.closest("tr[data-href]");
+  const row = e.target.closest("[data-href]");
   if (row) location.hash = row.dataset.href;
 });
 
