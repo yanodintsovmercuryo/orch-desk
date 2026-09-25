@@ -3,7 +3,7 @@ import os
 import tempfile
 import unittest
 
-from desk import deliver, state, transcript, view
+from desk import deliver, state, transcript, uploads, view
 
 CHECKPOINTS = state.load_checkpoints(pattern="/nonexistent/*")
 
@@ -149,7 +149,39 @@ class ViewTest(unittest.TestCase):
         self.assertTrue(view._names_stream("приёмка вида #122 (MER-1) и #120 (MER-2)", "MER-2", set()))
 
 
+class UploadsTest(unittest.TestCase):
+    PNG = b"\x89PNG\r\n\x1a\n" + b"\0" * 16
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self._dir, uploads.DIR = uploads.DIR, self.tmp.name
+
+    def tearDown(self):
+        uploads.DIR = self._dir
+        self.tmp.cleanup()
+
+    def test_saves_an_image_whose_bytes_match_its_type(self):
+        path = uploads.save(self.PNG, "image/png")
+        self.assertTrue(path.endswith(".png"))
+        self.assertEqual(uploads.checked([path]), [os.path.realpath(path)])
+
+    def test_refuses_a_mislabelled_or_foreign_file(self):
+        with self.assertRaises(ValueError):
+            uploads.save(b"<svg/>", "image/png")
+        with self.assertRaises(ValueError):
+            uploads.save(self.PNG, "image/svg+xml")
+        with self.assertRaises(ValueError):
+            uploads.checked(["/etc/hosts"])
+        with self.assertRaises(ValueError):
+            uploads.checked([os.path.join(uploads.DIR, "..", "x.png")])
+
+
 class DeliverTest(unittest.TestCase):
+    def test_images_are_appended_as_paths(self):
+        self.assertEqual(deliver.format_reply("MER-1", "см. скрин", ["/u/a.png", "/u/b.png"]),
+                         "[desk] MER-1: см. скрин · картинки: /u/a.png /u/b.png")
+        self.assertEqual(deliver.format_reply("MER-1", "", ["/u/a.png"]), "[desk] MER-1: картинки: /u/a.png")
+
     def test_reply_is_one_prefixed_line(self):
         self.assertEqual(deliver.format_reply("MER-1", "принимаю\n\n  мержи \n"), "[desk] MER-1: принимаю / мержи")
         self.assertEqual(deliver.format_reply("", "ok"), "[desk] ok")

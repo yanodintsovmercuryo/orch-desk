@@ -51,20 +51,22 @@ def resolve(session_id):
     return {"handle": handle, "pid": agent["pid"], "status": agent.get("status"), "title": term.get("title")}
 
 
-def format_reply(stream, text):
+def format_reply(stream, text, images=()):
     # One line: a newline typed into the agent prompt would submit early.
     body = " / ".join(l.strip() for l in text.strip().splitlines() if l.strip())
+    if images:
+        body = (body + " · " if body else "") + "картинки: " + " ".join(images)
     prefix = f"[desk] {stream}: " if stream else "[desk] "
     return prefix + body
 
 
-def send(session_id, stream, text, log_path):
-    if not text.strip():
+def send(session_id, stream, text, log_path, images=()):
+    if not text.strip() and not images:
         raise ValueError("empty reply")
     if len(text) > MAX_LEN:
         raise ValueError(f"reply longer than {MAX_LEN} characters")
-    line = format_reply(stream, text)
-    record = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "stream": stream, "text": line}
+    line = format_reply(stream, text, images)
+    record = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "stream": stream, "text": line, "images": list(images)}
     try:
         target = resolve(session_id)
         record["target"] = target

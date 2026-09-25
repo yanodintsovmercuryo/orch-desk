@@ -9,7 +9,7 @@ import threading
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from desk import deliver, view, workspace
+from desk import deliver, uploads, view, workspace
 
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("DESK_PORT", "8800"))
@@ -33,7 +33,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Content-Security-Policy",
-                         "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'")
+                         "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'")
         self.end_headers()
         self.wfile.write(data)
 
@@ -71,7 +71,16 @@ class Handler(BaseHTTPRequestHandler):
         origin = self.headers.get("Origin", "")
         if origin not in {f"http://{h}" for h in ALLOWED_HOSTS}:
             return self._send(403, {"error": "origin not allowed"})
-        if not self.headers.get("Content-Type", "").startswith("application/json"):
+        ctype = self.headers.get("Content-Type", "")
+        if self.path == "/api/upload":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if length > uploads.MAX_BYTES:
+                    return self._send(413, {"error": "image too large"})
+                return self._send(200, {"path": uploads.save(self.rfile.read(length), ctype)})
+            except ValueError as e:
+                return self._send(400, {"error": str(e)})
+        if not ctype.startswith("application/json"):
             return self._send(415, {"error": "json only"})
         try:
             length = min(int(self.headers.get("Content-Length", "0")), 64 * 1024)
@@ -92,7 +101,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(400, {"error": "unknown orchestrator session"})
             if stream and stream not in orch["streams"]:
                 return self._send(400, {"error": "unknown stream"})
-            record = deliver.send(session_id, stream, text, REPLIES)
+            images = uploads.checked(body.get("images") or [])
+            record = deliver.send(session_id, stream, text, REPLIES, images)
             return self._send(200 if record.get("ok") else 502, record)
         except ValueError as e:
             return self._send(400, {"error": str(e)})
@@ -101,6 +111,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
+    uploads.prune()
     httpd = ThreadingHTTPServer((HOST, PORT), Handler)
     # Warm the Linear/GitHub cache so the first page load does not wait on the CLIs.
     threading.Thread(target=view.build, daemon=True).start()
