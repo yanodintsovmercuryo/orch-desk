@@ -246,12 +246,12 @@ button.primary.danger { background: var(--danger); border-color: var(--danger); 
 @keyframes fade { from { opacity: 0; } }
 @keyframes pop { from { opacity: 0; transform: translateY(6px) scale(.98); } }
 .sicon.pending { color: var(--text-primary); border: 1px solid var(--text-primary); animation: ring 1.4s ease-out infinite; }
-.sicon.resolved { background: var(--text-primary); color: var(--text-inverse); animation: pop .3s ease; }
+.sicon.resolved { color: var(--text-muted); border: 1px solid var(--border-strong); animation: pop .3s ease; }
 @keyframes ring { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,.45); } 100% { box-shadow: 0 0 0 9px rgba(255,255,255,0); } }
 .row-ask .ico { width: 12px; height: 12px; margin-right: 5px; vertical-align: -1px; }
 .row-ask.live { color: var(--text-primary); }
 .row-ask.live .ico { animation: blink 1.2s ease-in-out infinite; }
-.row-ask.ok { color: var(--text-primary); }
+.row-ask.ok { color: var(--text-muted); }
 @keyframes blink { 50% { opacity: .3; } }
 tr.flash td { animation: flash 2.4s ease-out; }
 @keyframes flash { 0% { background: rgba(255,255,255,.12); } 100% { background: transparent; } }
