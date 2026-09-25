@@ -181,7 +181,43 @@ a.side-link:hover { background: var(--surface-hover); }
 .timeline li.now::before { border-color: var(--text-primary); box-shadow: 0 0 0 3px rgba(255, 255, 255, .12); }
 .timeline small { font-size: var(--text-xs); color: var(--text-muted); font-weight: 400; }
 
+.ico { width: 16px; height: 16px; flex: none; vertical-align: -3px; }
+.badge .ico { width: 13px; height: 13px; vertical-align: -2px; }
+.badge.you { gap: 5px; }
+.st { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-sm); color: var(--text-secondary); white-space: nowrap; }
+.st.muted { color: var(--text-muted); }
+.stat { display: inline-flex; align-items: center; gap: 6px; }
+.stat b { margin: 0; }
+.toggle-stat { font: inherit; color: var(--text-secondary); }
+.t-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+.t-title { font-weight: 500; color: var(--text-primary); font-size: 0.95rem; }
+.tag { font-size: var(--text-xs); color: var(--text-muted); border: 1px solid var(--border); border-radius: 5px; padding: 0 6px; line-height: 1.5; }
+.tasks td { padding: 14px var(--space-5); }
+.tasks .col-task { width: auto; }
+.tasks .col-stage { width: 150px; }
+.tasks .col-status { width: 150px; }
+.tasks .col-links { width: 150px; }
+.tasks .col-when { width: 64px; text-align: right; color: var(--text-muted); }
+.ilinks { display: flex; gap: 6px; }
+.ilink { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text-secondary); text-decoration: none; font-size: var(--text-xs); }
+.ilink:hover { border-color: var(--text-muted); color: var(--text-primary); background: var(--surface-raised); }
+.ilink.off { border-style: dashed; color: var(--text-muted); }
+.sdot { width: 6px; height: 6px; border-radius: 50%; border: 1px solid currentColor; }
+.sdot.on { background: var(--text-primary); border-color: var(--text-primary); }
+.orch { display: flex; gap: var(--space-3); padding: var(--space-4) var(--space-5); }
+.orch > .ico { margin-top: 3px; color: var(--text-muted); }
+.orch-main { flex: 1; min-width: 0; }
+.orch-flight { font-size: var(--text-sm); color: var(--text-secondary); margin: 2px 0 6px; }
+.side-link .lead { color: var(--text-muted); }
+.side-link .trail { color: var(--text-muted); width: 14px; height: 14px; }
+.side-link { justify-content: flex-start; }
+.side-link span { flex: 1; }
+.side-kv dt { display: flex; align-items: center; gap: 6px; }
+.side-kv dt .ico { width: 13px; height: 13px; }
+summary .ico { width: 14px; height: 14px; }
+
 @media (max-width: 899px) {
+  .tasks .col-stage { display: none; }
   .task-layout { grid-template-columns: 1fr; }
   .page { padding: 16px 16px 32px; }
   .tasks .col-links, .tasks .col-when { display: none; }
@@ -333,20 +369,21 @@ function askPanel(key, items, ask, session, stream) {
     </div></section>`;
 }
 
-function sideLink(label, sub, url) {
+function sideLink(label, sub, url, ic) {
+  const lead = ic ? icon(ic, "lead") : "";
   return url
-    ? `<a class="side-link" href="${esc(url)}" target="_blank" rel="noopener"><span><b>${label}</b><small>${esc(sub)}</small></span><i>↗</i></a>`
-    : `<div class="side-link off"><span><b>${label}</b><small>${esc(sub)}</small></span></div>`;
+    ? `<a class="side-link" href="${esc(url)}" target="_blank" rel="noopener">${lead}<span><b>${label}</b><small>${esc(sub)}</small></span>${icon("out", "trail")}</a>`
+    : `<div class="side-link off">${lead}<span><b>${label}</b><small>${esc(sub)}</small></span></div>`;
 }
 
 function linksPanel(s) {
   const lin = s.links.linear || {}, pr = s.links.pr || {}, h = s.header;
   return `<section class="panel"><div class="panel-head"><h2>Ссылки</h2></div><div class="side-list">
-    ${pr.url ? sideLink(`PR #${esc(pr.number)}`, [pr.state && pr.state.toLowerCase(), pr.title].filter(Boolean).join(" · "), pr.url) : sideLink("PR", "ещё не открыт", "")}
-    ${sideLink(esc(h.tracker || s.id), lin.state || "Linear", lin.url)}
+    ${pr.url ? sideLink(`PR #${esc(pr.number)}`, [pr.state && pr.state.toLowerCase(), pr.title].filter(Boolean).join(" · "), pr.url, "pr") : sideLink("PR", "ещё не открыт", "", "pr")}
+    ${sideLink(esc(h.tracker || s.id), lin.state || "Linear", lin.url, "linear")}
     </div>
-    <dl class="kv side-kv"><dt>Ветка</dt><dd class="mono">${esc(h.branch || "—")}</dd>
-      <dt>Worktree</dt><dd class="mono">${esc((h.repository || "—").replace(/^\/Users\/[^/]+/, "~"))}</dd></dl></section>`;
+    <dl class="kv side-kv"><dt>${icon("branch")}Ветка</dt><dd class="mono">${esc(h.branch || "—")}</dd>
+      <dt>${icon("folder")}Worktree</dt><dd class="mono">${esc((h.repository || "—").replace(/^\/Users\/[^/]+/, "~"))}</dd></dl></section>`;
 }
 
 function contourPanel(s) {
@@ -362,11 +399,11 @@ function contourPanel(s) {
   if (w.loading) body = `<div class="panel-body muted">Читаю task workspace:info…</div>`;
   else if (w.error) body = `<div class="panel-body error">${esc(w.error)}</div>`;
   else body = `<div class="side-list">
-      ${sideLink("Console", (web.console || "").replace(/^https?:\/\//, ""), web.console)}
-      ${sideLink("Admin", (web.admin || "").replace(/^https?:\/\//, ""), web.admin)}
-      ${sideLink("DbGate", (web.dbgate || "").replace(/^https?:\/\//, ""), web.dbgate)}
-      ${sideLink("API", (web.api || "").replace(/^https?:\/\//, ""), web.api)}
-      ${sideLink("RabbitScout", (web.rabbitscout || "").replace(/^https?:\/\//, ""), web.rabbitscout)}</div>
+      ${sideLink("Console", (web.console || "").replace(/^https?:\/\//, ""), web.console, "layout")}
+      ${sideLink("Admin", (web.admin || "").replace(/^https?:\/\//, ""), web.admin, "shield")}
+      ${sideLink("DbGate", (web.dbgate || "").replace(/^https?:\/\//, ""), web.dbgate, "db")}
+      ${sideLink("API", (web.api || "").replace(/^https?:\/\//, ""), web.api, "code")}
+      ${sideLink("RabbitScout", (web.rabbitscout || "").replace(/^https?:\/\//, ""), web.rabbitscout, "layers")}</div>
     <dl class="kv side-kv"><dt>Инфраструктура</dt><dd>${esc(APP[st.infrastructure] || st.infrastructure || "—")}</dd>
       <dt>Проверено</dt><dd>${esc(when(w.checked))}</dd></dl>`;
   const log = up ? `<div class="panel-body">${det(s.id + ":appup", `Вывод app:up${up.running ? " (идёт)" : ` · код ${esc(up.exit_code)}`}`, `<pre>${esc(up.tail || "")}</pre>`)}</div>` : "";
@@ -399,9 +436,9 @@ function taskView(s) {
   const err = s.error ? `<div class="error">${esc(s.error)}</div>` : "";
   const idle = s.closed ? "" : `<section class="panel"><div class="panel-body muted">Сейчас оркестратор ничего у тебя по этой задаче не спрашивает.</div></section>`;
   return `<a class="back" href="#/">← Все задачи</a>
-    <header class="task-head"><div class="task-head-top"><span class="id">${esc(s.id)}</span>${statusBadge(s)}
-      <span class="muted">обновлено ${esc(ago(s.last_ts))}</span></div>
-      <h1 class="big">${esc(titleOf(s))}</h1>${err}</header>
+    <header class="task-head"><div class="task-head-top"><span class="id">${esc(s.id)}</span>${statusCell(s)}
+      <span class="st muted">${icon("clock")}${esc(ago(s.last_ts))}</span>${splitTitle(titleOf(s)).tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
+      <h1 class="big">${esc(splitTitle(titleOf(s)).title)}</h1>${err}</header>
     <div class="task-layout">
       <div class="task-main">${s.owner_asks.length ? askPanel("s:" + s.id, s.owner_asks, s.ask || {}, sessionOf(s.orchestrator), s.id) : idle}${journalPanel(s)}</div>
       <aside class="task-side">${linksPanel(s)}${contourPanel(s)}${stagesPanel(s)}</aside>
@@ -415,36 +452,122 @@ function generalView(g) {
     <div class="task-layout one">${askPanel("g:" + g.id, [g.item], g.ask || {}, sessionOf(g.orchestrator), "")}</div>`;
 }
 
+const ICONS = {
+  pr: '<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M6 9v12"/>',
+  linear: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 7v7"/><path d="M12 7v4"/><path d="M16 7v9"/>',
+  server: '<rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01"/><path d="M6 18h.01"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  ask: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+  bot: '<rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><path d="M8 16h.01"/><path d="M16 16h.01"/>',
+  activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  hourglass: '<path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.17a2 2 0 0 0-.59-1.41L12 12l-4.41 4.42A2 2 0 0 0 7 17.83V22"/><path d="M7 2v4.17a2 2 0 0 0 .59 1.41L12 12l4.41-4.42A2 2 0 0 0 17 6.17V2"/>',
+  send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+  out: '<path d="M7 7h10v10"/><path d="M7 17 17 7"/>',
+  layout: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/>',
+  shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  db: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/>',
+  code: '<path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/>',
+  layers: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
+  branch: '<path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
+  folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+};
+
+function icon(name, cls = "") {
+  return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
+}
+
+function splitTitle(t) {
+  // "[console][admin] Tables: …" → tags ["console", "admin"], title "Tables: …"
+  const tags = [];
+  let rest = String(t || "");
+  let m;
+  while ((m = rest.match(/^\s*\[([^\]]+)\]\s*/))) { tags.push(m[1]); rest = rest.slice(m[0].length); }
+  return {tags, title: rest};
+}
+
+function titleHtml(s) {
+  const {tags, title} = splitTitle(titleOf(s));
+  return `<span class="t-title">${esc(title)}</span>${tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}`;
+}
+
+function short(ts) {
+  if (!ts) return "—";
+  const m = Math.round((Date.now() - new Date(ts)) / 60000);
+  if (m < 1) return "сейчас";
+  if (m < 60) return `${m} мин`;
+  const h = Math.round(m / 60);
+  return h < 48 ? `${h} ч` : `${Math.round(h / 24)} дн`;
+}
+
+function iconLinks(s) {
+  const lin = s.links.linear || {}, pr = s.links.pr || {}, w = s.workspace || {};
+  const web = (w.info || {}).web || {}, app = ((w.info || {}).status || {}).application;
+  const a = (url, title, html, cls = "") => `<a class="ilink ${cls}" href="${esc(url)}" target="_blank" rel="noopener" title="${esc(title)}">${html}</a>`;
+  const out = [];
+  out.push(pr.url ? a(pr.url, `PR #${pr.number} · ${(pr.state || "").toLowerCase()}`, `${icon("pr")}<span>${esc(pr.number)}</span>`)
+    : `<span class="ilink off" title="PR ещё нет">${icon("pr")}<span>—</span></span>`);
+  if (lin.url) out.push(a(lin.url, `Linear · ${lin.state || ""}`, icon("linear")));
+  if (web.console) out.push(a(web.console, `Стенд · ${APP[app] || app || ""}`, `${icon("server")}<i class="sdot ${app === "running" ? "on" : ""}"></i>`));
+  return `<span class="ilinks">${out.join("")}</span>`;
+}
+
+function statusCell(s) {
+  if (s.closed) return `<span class="st muted">${icon("check")}закрыта</span>`;
+  if (s.owner_asks.length) return `<span class="badge you">${icon("ask")}Ждёт тебя</span>`;
+  if (s.derived["owed by"] === "the orchestrator") return `<span class="st">${icon("hourglass")}у оркестратора</span>`;
+  return `<span class="st muted">${icon("activity")}в работе</span>`;
+}
+
+function stageCell(s) {
+  const idx = s.progress.index;
+  const bars = last.checkpoints.map((c, i) =>
+    `<i class="${i < idx || (i === idx && s.closed) ? "done" : i === idx ? "now" : ""}" title="${esc(STAGES[c] || c)}"></i>`).join("");
+  return `<div class="stage"><div class="bar">${bars}</div><span class="stage-label">${esc(idx >= 0 ? STAGES[last.checkpoints[idx]] : "—")}</span></div>`;
+}
+
+function inFlight(status) {
+  const seg = String(status || "").split(" · ").find(x => x.trim().startsWith("in flight:"));
+  return seg ? seg.replace(/^\s*in flight:\s*/, "") : "";
+}
+
+function dropId(text, id) {
+  // The row already names the task; "(MER-1)" inside its own ask is noise.
+  return String(text).replace(new RegExp(`\\s*\\(${id}\\)`, "g"), "").trim();
+}
+
 function homeView() {
   const d = last;
   const openS = d.streams.filter(s => !s.closed), closedS = d.streams.filter(s => s.closed);
   const nAsks = openS.filter(s => s.owner_asks.length).length + d.general_asks.length;
   const shown = showClosed ? openS.concat(closedS) : openS;
-  const general = d.general_asks.map(g => `<tr class="row" data-href="#/ask/${esc(encodeURIComponent(g.id))}">
-      <td class="col-task"><div class="id">без задачи</div><div class="task-title">${inline(g.item)}</div></td>
-      <td></td><td><span class="badge you dot">Ждёт тебя</span></td><td class="col-links"></td>
-      <td class="col-when">${esc(ago((g.ask && g.ask.origin || {}).ts))}</td></tr>`).join("");
   const row = s => `<tr class="row" data-href="#/task/${esc(encodeURIComponent(s.id))}">
-      <td class="col-task"><div class="id">${esc(s.id)}</div><div class="task-title">${esc(titleOf(s))}</div>
-        ${s.owner_asks.length ? `<div class="row-ask">${s.owner_asks.map(inline).join(" · ")}</div>` : ""}</td>
-      <td>${stage(s)}</td><td>${statusBadge(s)}</td><td class="col-links">${linksOf(s)}</td>
-      <td class="col-when">${esc(ago(s.last_ts))}</td></tr>`;
+      <td class="col-task"><div class="t-line"><span class="id">${esc(s.id)}</span>${titleHtml(s)}</div>
+        ${s.owner_asks.length ? `<div class="row-ask">${s.owner_asks.map(a => inline(dropId(a, s.id))).join(" · ")}</div>` : ""}</td>
+      <td class="col-stage">${stageCell(s)}</td><td class="col-status">${statusCell(s)}</td>
+      <td class="col-links">${iconLinks(s)}</td>
+      <td class="col-when" title="${esc(when(s.last_ts))}">${esc(short(s.last_ts))}</td></tr>`;
+  const general = d.general_asks.map(g => `<tr class="row" data-href="#/ask/${esc(encodeURIComponent(g.id))}">
+      <td class="col-task"><div class="t-line"><span class="id">вопрос</span><span class="t-title">${inline(g.item)}</span></div></td>
+      <td class="col-stage"></td><td class="col-status"><span class="badge you">${icon("ask")}Ждёт тебя</span></td>
+      <td class="col-links"></td><td class="col-when">${esc(short((g.ask && g.ask.origin || {}).ts))}</td></tr>`).join("");
   const waitingRows = shown.filter(s => s.owner_asks.length).map(row).join("");
   const rows = shown.filter(s => !s.owner_asks.length).map(row).join("");
-  const orch = d.orchestrators.map(o => `<div class="panel-body"><b>${esc(o.name)}</b> <span class="muted">· ${esc(ago(o.message_ts))}</span>
-      ${o.error ? `<div class="error">${esc(o.error)}</div>` : `<div class="sub">${inline(o.status_line || "нет строки статуса")}</div>`}
-      <div style="margin-top:8px">${det("orch:" + o.name, "Последнее сообщение", `<div class="quote">${md(o.message)}</div>`)}</div></div>`).join("");
+  const orch = d.orchestrators.map(o => {
+    const flight = inFlight(o.status_line);
+    return `<div class="orch">${icon("bot")}<div class="orch-main"><div><b>${esc(o.name.split("/").pop())}</b>
+        <span class="muted">· ${esc(short(o.message_ts))}</span></div>
+        ${o.error ? `<div class="error">${esc(o.error)}</div>` : `<div class="orch-flight">${flight ? inline(flight) : "ничего не запущено"}</div>`}
+        ${det("orch:" + o.name, "последнее сообщение", `<div class="quote">${md(o.message)}</div>`)}</div></div>`;
+  }).join("");
   const replies = [...(d.replies || [])].reverse().map(r =>
-    `<li class="${r.ok ? "" : "note"}"><span>${esc(when(r.ts))}</span><div>${r.ok ? "" : "не доставлено: "}${esc(r.text)}${r.error ? " — " + esc(r.error) : ""}</div></li>`).join("");
-  return `<div class="page-head"><div><h1>Задачи оркестратора</h1><div class="sub" id="sub"></div></div>
-      <div class="stats"><span class="stat"><b>${nAsks}</b>ждут тебя</span><span class="stat"><b>${openS.length}</b>в работе</span><span class="stat"><b>${closedS.length}</b>закрыто</span></div></div>
-    <section class="panel"><div class="panel-head"><h2>Задачи</h2><span class="count">${shown.length + d.general_asks.length}</span>
-      <span class="right"><button class="toggle" id="toggle-closed" type="button">${showClosed ? "Скрыть закрытые" : `Показать закрытые (${closedS.length})`}</button></span></div>
-      <table class="tasks"><thead><tr><th class="col-task">Задача</th><th>Этап</th><th>Статус</th><th class="col-links">Ссылки</th><th class="col-when">Обновлено</th></tr></thead>
-      <tbody>${waitingRows + general + rows || `<tr><td colspan="5" class="empty">Нет задач.</td></tr>`}</tbody></table></section>
-    <section class="panel"><div class="panel-head"><h2>Оркестратор</h2></div>${orch}</section>
-    <section class="panel"><div class="panel-head"><h2>Отправленные ответы</h2></div>
-      <div class="panel-body">${replies ? `<ul class="log">${replies}</ul>` : `<span class="muted">Пока ничего.</span>`}</div></section>`;
+    `<li class="${r.ok ? "" : "note"}"><span>${esc(when(r.ts))}</span><div>${r.ok ? "" : "не доставлено: "}${esc(r.text.replace(/^\[desk\]\s*/, ""))}${r.error ? " — " + esc(r.error) : ""}</div></li>`).join("");
+  return `<div class="page-head"><div><h1>Задачи</h1><div class="sub" id="sub"></div></div>
+      <div class="stats"><span class="stat" title="ждут тебя">${icon("ask")}<b>${nAsks}</b></span><span class="stat" title="в работе">${icon("activity")}<b>${openS.length}</b></span>
+        <button class="stat toggle-stat" id="toggle-closed" type="button" title="${showClosed ? "Скрыть закрытые" : "Показать закрытые"}">${icon("check")}<b>${closedS.length}</b></button></div></div>
+    <section class="panel"><table class="tasks"><tbody>${waitingRows + general + rows || `<tr><td class="empty">Нет задач.</td></tr>`}</tbody></table></section>
+    <section class="panel">${orch}</section>
+    ${replies ? `<section class="panel"><div class="panel-body">${det("replies", `${icon("send")} отправленные ответы · ${d.replies.length}`, `<ul class="log">${replies}</ul>`)}</div></section>` : ""}`;
 }
 
 function render() {
@@ -531,7 +654,7 @@ document.addEventListener("click", async e => {
     const f = q.closest("form"), ta = f.querySelector("textarea");
     ta.value = q.dataset.quick; drafts.set(f.dataset.key, ta.value); ta.focus(); return;
   }
-  if (e.target.id === "toggle-closed") { showClosed = !showClosed; safeRender(); return; }
+  if (e.target.closest("#toggle-closed")) { showClosed = !showClosed; safeRender(); return; }
   const ws = e.target.closest("[data-ws]");
   if (ws) {
     const stream = ws.dataset.stream, action = ws.dataset.ws;

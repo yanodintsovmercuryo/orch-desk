@@ -70,6 +70,17 @@ def status(repo, force=False):
     return out
 
 
+USER_ENV_NU = os.path.expanduser("~/Library/Application Support/nushell/env.nu")
+
+
+def _app_up_command(repo):
+    # app:up needs the owner's GITHUB_TOKEN, which lives only in the nushell env; run
+    # through it instead of copying the secret into the launchd agent.
+    if os.path.isfile(USER_ENV_NU):
+        return ["nu", "--env-config", USER_ENV_NU, "-c", "^task -d $env.DESK_REPO app:up"]
+    return ["task", "-d", repo, "app:up"]
+
+
 def app_up(repo, stream):
     """Starts `task app:up` detached; a second click while one runs is refused."""
     if not has_contour(repo):
@@ -81,8 +92,9 @@ def app_up(repo, stream):
         os.makedirs(LOG_DIR, exist_ok=True)
         log = os.path.join(LOG_DIR, f"{stream}-app-up.log")
         with open(log, "w", encoding="utf-8") as f:
-            proc = subprocess.Popen(["task", "-d", repo, "app:up"], stdout=f, stderr=subprocess.STDOUT,
-                                    stdin=subprocess.DEVNULL, start_new_session=True)
+            proc = subprocess.Popen(_app_up_command(repo), stdout=f, stderr=subprocess.STDOUT,
+                                    stdin=subprocess.DEVNULL, start_new_session=True,
+                                    env={**os.environ, "DESK_REPO": repo})
         _starting[repo] = (proc, log, time.time())
         _cache.pop(repo, None)
 
