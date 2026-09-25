@@ -284,6 +284,22 @@ tr.flash td { animation: flash 2.4s ease-out; }
 a.ref { color: var(--text-primary); text-decoration-style: dotted; }
 .ref-title { color: var(--text-secondary); font-weight: 400; }
 
+a.shots { display: inline-flex; align-items: center; gap: 5px; color: var(--text-primary); text-decoration-style: dotted; word-break: break-all; }
+a.shots .ico { width: 13px; height: 13px; flex: none; }
+.viewer { position: fixed; inset: 0; z-index: 1100; background: rgba(8, 8, 8, .97); display: grid; grid-template-rows: auto 1fr; animation: fade .12s ease; }
+.viewer-bar { display: flex; align-items: center; gap: var(--space-3); padding: 12px 20px; font-size: var(--text-sm); border-bottom: 1px solid var(--border); background: var(--surface-card); }
+.viewer-bar .right { margin-left: auto; display: flex; gap: var(--space-2); }
+.viewer-bar button { display: inline-flex; align-items: center; gap: 6px; }
+.viewer-bar button .ico { width: 14px; height: 14px; }
+.viewer-body { display: grid; place-items: center; padding: 24px 72px; min-height: 0; }
+.viewer-body.pair { grid-template-columns: 1fr 1fr; gap: 20px; }
+.viewer-body figure { margin: 0; display: grid; grid-template-rows: auto 1fr; gap: 8px; height: 100%; min-height: 0; width: 100%; }
+.viewer-body figcaption { font-size: var(--text-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; text-align: center; }
+.viewer-body img { max-width: 100%; max-height: calc(100vh - 140px); object-fit: contain; justify-self: center; border: 1px solid var(--border-strong); border-radius: var(--r-sm); background: #fff; }
+.viewer-nav { position: fixed; top: 50%; transform: translateY(-50%); width: 44px; height: 64px; font-size: 28px; line-height: 1; border-radius: var(--r); background: var(--surface-card); }
+.viewer-nav.prev { left: 14px; }
+.viewer-nav.next { right: 14px; }
+
 @media (max-width: 899px) {
   .tasks .col-stage { display: none; }
   .task-layout { grid-template-columns: 1fr; }
@@ -298,6 +314,7 @@ a.ref { color: var(--text-primary); text-decoration-style: dotted; }
 <body>
 <div id="modal-root"></div>
 <div id="toast-root"></div>
+<div id="viewer-root"></div>
 <main class="page" id="app"><div class="empty">Загружаю…</div></main>
 <script>
 const STAGES = {"launched": "Запуск", "spec-drafted": "Спецификация", "plan-passed": "План", "gate-round": "Ревью",
@@ -325,10 +342,14 @@ function issueLink(id) {
 }
 
 // Task ids and PR numbers in orchestrator text become links; text inside links and code is left alone.
+const SHOT_PATH = /((?:~|\/Users\/yanodintsov)\/(?:screens|\.local\/state\/orchestrators)\/[^\s<)»"'`]+)/g;
+const shotLink = p => `<a class="shots" href="#" data-shots="${esc(p)}">${icon("image")}${esc(p)}</a>`;
+
 function linkify(html) {
   const repos = knownRepos();
   return html.split(/(<a\b[^>]*>.*?<\/a>|<code>.*?<\/code>|<[^>]+>)/).map((part, i) => {
-    if (i % 2) return part;
+    if (i % 2) return part.replace(/^<code>((?:~|\/Users\/yanodintsov)\/(?:screens|\.local\/state\/orchestrators)\/[^<]+)<\/code>$/, (m, p) => shotLink(p));
+    part = part.replace(SHOT_PATH, p => shotLink(p.replace(/[.,;:]+$/, "")));
     part = part.replace(/\b([a-z][a-z0-9-]+) #(\d+)\b/g, (m, repo, n) => repos.has(repo)
       ? `<a class="ref" href="https://github.com/MercuryoPro/${repo}/pull/${n}" target="_blank" rel="noopener">${repo} #${n}</a>` : m);
     part = part.replace(/\bPR #(\d+)\b/g, (m, n) => ctxRepo
@@ -865,6 +886,65 @@ function toast(message) {
     if (t) { t.classList.add("out"); setTimeout(() => { root.innerHTML = ""; }, 250); }
   }, 4000);
 }
+
+let viewer = null;
+
+async function openShots(path) {
+  const res = await fetch("/api/shots?path=" + encodeURIComponent(path), {cache: "no-store"});
+  const data = await res.json();
+  if (!res.ok) return toast(data.error || "Не открылось");
+  if (!data.items.length) return toast("В папке нет картинок");
+  viewer = {...data, i: data.start || 0};
+  drawViewer();
+}
+
+function drawViewer() {
+  const root = document.getElementById("viewer-root");
+  if (!viewer) { root.innerHTML = ""; dialogOpen = false; return; }
+  dialogOpen = true;
+  const it = viewer.items[viewer.i], n = viewer.items.length;
+  const pane = (label, path) => `<figure><figcaption>${label}</figcaption>
+    <img src="/api/file?path=${encodeURIComponent(path)}" alt="${esc(label)}"></figure>`;
+  const body = it.before && it.after ? pane("было", it.before) + pane("стало", it.after)
+    : pane(it.before ? "было" : "стало", it.after || it.before);
+  root.innerHTML = `<div class="viewer" role="dialog" aria-modal="true">
+    <div class="viewer-bar"><b>${esc(it.name)}</b><span class="muted">${viewer.i + 1} / ${n} · ${esc(viewer.folder.replace(/^\/Users\/[^/]+/, "~"))}</span>
+      <span class="right"><button type="button" data-v="reveal">${icon("folder")}Показать в Finder</button>
+      <button type="button" data-v="close" title="Закрыть (Esc)">×</button></span></div>
+    <div class="viewer-body ${it.before && it.after ? "pair" : ""}">${body}</div>
+    <button type="button" class="viewer-nav prev" data-v="prev" ${n < 2 ? "hidden" : ""}>‹</button>
+    <button type="button" class="viewer-nav next" data-v="next" ${n < 2 ? "hidden" : ""}>›</button></div>`;
+}
+
+function stepViewer(d) {
+  if (!viewer) return;
+  viewer.i = (viewer.i + d + viewer.items.length) % viewer.items.length;
+  drawViewer();
+}
+
+document.addEventListener("keydown", e => {
+  if (!viewer) return;
+  if (e.key === "ArrowLeft") { e.preventDefault(); stepViewer(-1); }
+  else if (e.key === "ArrowRight") { e.preventDefault(); stepViewer(1); }
+  else if (e.key === "Escape") { e.preventDefault(); viewer = null; drawViewer(); flushRender(); }
+}, true);
+
+document.addEventListener("click", async e => {
+  const link = e.target.closest("[data-shots]");
+  if (link) { e.preventDefault(); e.stopPropagation(); openShots(link.dataset.shots); return; }
+  const v = e.target.closest("[data-v]");
+  if (!v && e.target.classList && e.target.classList.contains("viewer")) { viewer = null; drawViewer(); flushRender(); return; }
+  if (!v) return;
+  const act = v.dataset.v;
+  if (act === "prev") stepViewer(-1);
+  else if (act === "next") stepViewer(1);
+  else if (act === "close") { viewer = null; drawViewer(); flushRender(); }
+  else if (act === "reveal") {
+    const it = viewer.items[viewer.i];
+    const {res, data} = await post("/api/reveal", {path: it.after || it.before});
+    if (!res.ok) toast(data.error || "Не открылось в Finder");
+  }
+}, true);
 
 function render() {
   if (!last) return;

@@ -8,9 +8,10 @@ import os
 import sys
 import threading
 import traceback
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from desk import deliver, links, terminal, uploads, view, workspace
+from desk import deliver, links, shots, terminal, uploads, view, workspace
 
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("DESK_PORT", "8800"))
@@ -66,6 +67,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, data)
             except Exception:
                 return self._send(500, {"error": traceback.format_exc(limit=5)})
+        if route in ("/api/shots", "/api/file"):
+            query = urllib.parse.parse_qs(self.path.split("?", 1)[1] if "?" in self.path else "")
+            path = (query.get("path") or [""])[0]
+            try:
+                if route == "/api/shots":
+                    return self._send(200, shots.listing(path))
+                data, ctype = shots.image(path)
+                return self._send(200, data, ctype)
+            except ValueError as e:
+                return self._send(404, {"error": str(e)})
         if route == "/api/issues":
             # Titles for task ids mentioned in text; served from the Linear cache, never blocking.
             query = self.path.split("?", 1)[1] if "?" in self.path else ""
@@ -103,6 +114,8 @@ class Handler(BaseHTTPRequestHandler):
                 if self.path.endswith("/up"):
                     workspace.app_up(repo, stream)
                 return self._send(200, workspace.status(repo, force=self.path.endswith("/refresh")))
+            if self.path == "/api/reveal":
+                return self._send(200, shots.reveal(body.get("path", "")))
             if self.path == "/api/terminal":
                 stream = body.get("stream", "")
                 repo = view.stream_repo(stream) if stream.replace("-", "").isalnum() else ""
