@@ -1012,25 +1012,44 @@ function zoomBy(f) {
   drawViewer();
 }
 
+// One shared scroll point in pixels: each pane shows min(point, its own edge), so a shorter shot
+// parks at its end while the longer one goes on, and moves again only once the point is back inside it.
 function syncScroll(panes) {
-  let lock = false;
+  if (!panes.length || !viewer) return;
+  const body = panes[0].closest(".viewer-body");
+  const pos = viewer.pos || (viewer.pos = {x: 0, y: 0});
+  const edge = (p, axis) => axis === "y" ? p.scrollHeight - p.clientHeight : p.scrollWidth - p.clientWidth;
+  const clampTo = (v, max) => Math.max(0, Math.min(v, max));
+  const apply = () => panes.forEach(p => {
+    p.scrollTop = clampTo(pos.y, edge(p, "y"));
+    p.scrollLeft = clampTo(pos.x, edge(p, "x"));
+  });
+  const far = axis => Math.max(0, ...panes.map(p => edge(p, axis)));
+  body.addEventListener("wheel", e => {
+    e.preventDefault();
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? panes[0].clientHeight : 1;
+    const dx = (e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX) * unit;
+    const dy = (e.shiftKey && !e.deltaX ? 0 : e.deltaY) * unit;
+    pos.y = clampTo(pos.y + dy, far("y"));
+    pos.x = clampTo(pos.x + dx, far("x"));
+    apply();
+  }, {passive: false});
   panes.forEach(p => p.addEventListener("scroll", () => {
-    if (lock) return;
-    lock = true;
-    const ry = p.scrollTop / Math.max(1, p.scrollHeight - p.clientHeight);
-    const rx = p.scrollLeft / Math.max(1, p.scrollWidth - p.clientWidth);
-    panes.forEach(o => {
-      if (o === p) return;
-      o.scrollTop = ry * (o.scrollHeight - o.clientHeight);
-      o.scrollLeft = rx * (o.scrollWidth - o.clientWidth);
-    });
-    requestAnimationFrame(() => { lock = false; });
+    // Our own writes land exactly on the clamped point; anything else is a scrollbar drag.
+    const ours = Math.abs(p.scrollTop - clampTo(pos.y, edge(p, "y"))) < 1 && Math.abs(p.scrollLeft - clampTo(pos.x, edge(p, "x"))) < 1;
+    if (ours) return;
+    pos.y = p.scrollTop;
+    pos.x = p.scrollLeft;
+    apply();
   }));
+  panes.forEach(p => p.querySelector("img")?.addEventListener("load", apply));
+  apply();
 }
 
 function stepViewer(d) {
   if (!viewer) return;
   viewer.i = (viewer.i + d + viewer.items.length) % viewer.items.length;
+  viewer.pos = {x: 0, y: 0};
   drawViewer();
 }
 
