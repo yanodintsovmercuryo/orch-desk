@@ -3,7 +3,7 @@ import os
 import tempfile
 import unittest
 
-from desk import deliver, state, terminal, transcript, uploads, view
+from desk import deliver, source, state, terminal, transcript, uploads, view
 
 CHECKPOINTS = state.load_checkpoints(pattern="/nonexistent/*")
 
@@ -190,6 +190,27 @@ class TerminalPromptTest(unittest.TestCase):
         self.assertEqual(p["options"][0]["label"], "Да, действуй по нему (Recommended)")
         self.assertEqual(p["options"][0]["hint"], "Считаю вставку вашим словом: push.")
         self.assertEqual(p["options"][2]["hint"], "")
+
+
+class SourceTest(unittest.TestCase):
+    def test_only_files_under_the_owner_roots_are_readable(self):
+        self.assertEqual(source.allowed("/etc/hosts"), "")
+        self.assertEqual(source.allowed("~/.ssh/config"), "")
+        self.assertEqual(source.allowed("~/orca/workspaces/../.zshrc"), "")
+        self.assertTrue(source.allowed("~/orca/workspaces/notifier/x.go").endswith("/orca/workspaces/notifier/x.go"))
+
+    def test_read_focuses_a_line_within_the_file(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "f.go")
+            with open(path, "w") as f:
+                f.write("a\nb\nc\n")
+            orig, source.roots = source.roots, lambda: [os.path.realpath(d)]
+            try:
+                out = source.read(path, 99)
+            finally:
+                source.roots = orig
+            self.assertEqual(out["lines"], ["a", "b", "c"])
+            self.assertEqual(out["line"], 3)
 
 
 class ViewTest(unittest.TestCase):
