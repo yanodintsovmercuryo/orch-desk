@@ -135,6 +135,9 @@ details > summary::-webkit-details-marker { display: none; }
 details > summary::before { content: "▸ "; }
 details[open] > summary::before { content: "▾ "; }
 details[open] > summary { margin-bottom: var(--space-3); }
+details.fold > summary.panel-head { font-size: inherit; color: inherit; margin: 0; }
+details.fold > summary.panel-head::before { color: var(--text-muted); }
+details.fold:not([open]) > summary.panel-head { border-bottom: 0; }
 
 textarea { width: 100%; min-height: 96px; resize: vertical; font: var(--text-base)/1.5 var(--font-sans); color: var(--text-primary); background: var(--surface-inset); border: 1px solid var(--border-strong); border-radius: var(--r); padding: 10px 12px; }
 textarea:focus { outline: none; border-color: var(--text-secondary); box-shadow: 0 0 0 3px rgba(255, 255, 255, .08); }
@@ -651,14 +654,15 @@ function advisorPanel(s) {
   const model = advisorModel.get(s.id) || (advisorState.get(s.id) || {}).model || "sonnet";
   const running = !!(advisorState.get(s.id) || {}).running;
   const has = ((advisorState.get(s.id) || {}).messages || []).length;
-  return `<section class="panel" id="advisor-panel" data-stream="${esc(s.id)}"><div class="panel-head"><h2>${icon("ask")}Спросить про задачу</h2>
+  const advOpen = openDetails.has("fold:a:" + s.id) || running || has;
+  return `<details class="panel fold" id="advisor-panel" data-stream="${esc(s.id)}" data-key="fold:a:${esc(s.id)}" ${advOpen ? "open" : ""}><summary class="panel-head"><h2>${icon("ask")}Спросить про задачу</h2>
       <span class="right"><span class="seg">${["sonnet", "opus"].map(m => `<button type="button" class="${m === model ? "on" : ""}" data-adv-model="${m}" data-stream="${esc(s.id)}">${m === "sonnet" ? "Sonnet" : "Opus"}</button>`).join("")}</span>
-      ${has ? `<button type="button" class="toggle" data-adv-reset="${esc(s.id)}">новая беседа</button>` : ""}</span></div>
+      ${has ? `<button type="button" class="toggle" data-adv-reset="${esc(s.id)}">новая беседа</button>` : ""}</span></summary>
     <div class="panel-body stack-lg"><div id="advisor-body">${advisorBody(s.id)}</div>
       <form class="adv-form stack" data-stream="${esc(s.id)}" data-key="a:${esc(s.id)}">
         <textarea placeholder="Вопрос советчику по ${esc(s.id)} · ⌘Enter — отправить" ${running ? "disabled" : ""}>${esc(drafts.get("a:" + s.id) || "")}</textarea>
         <div class="row-actions"><button type="submit" class="primary" ${running ? "disabled" : ""}>${running ? "Отвечает…" : "Спросить"}</button></div>
-      </form></div></section>`;
+      </form></div></details>`;
 }
 
 async function loadAdvisor(id) {
@@ -745,9 +749,9 @@ async function answerDesk(id, option, text, images) {
 
 function notePanel(s) {
   if (s.closed) return "";
-  return `<section class="panel"><div class="panel-head"><h2>${icon("pen")}Комментарий</h2>
-      <span class="right muted small">оркестратор передаст его потоку</span></div>
-    <div class="panel-body">${replyForm("n:" + s.id, sessionOf(s.orchestrator), s.id, [], "note")}</div></section>`;
+  return `<details class="panel fold" data-key="fold:n:${esc(s.id)}" ${openDetails.has("fold:n:" + s.id) ? "open" : ""}><summary class="panel-head"><h2>${icon("pen")}Комментарий</h2>
+      <span class="right muted small">оркестратор передаст его потоку</span></summary>
+    <div class="panel-body">${replyForm("n:" + s.id, sessionOf(s.orchestrator), s.id, [], "note")}</div></details>`;
 }
 
 function sideLink(label, sub, url, ic) {
@@ -1428,6 +1432,9 @@ async function post(path, body) {
   return {res, data};
 }
 
+document.addEventListener("click", e => {
+  if (e.target.closest("button") && e.target.closest("summary.panel-head")) e.preventDefault();
+});
 document.addEventListener("toggle", e => {
   const k = e.target.dataset?.key;
   if (!k) return;
