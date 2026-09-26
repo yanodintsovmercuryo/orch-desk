@@ -488,7 +488,7 @@ function md(text) {
 function when(ts) {
   if (!ts) return "";
   const d = typeof ts === "number" ? new Date(ts * 1000) : new Date(ts);
-  return isNaN(d) ? esc(ts) : d.toLocaleString("ru-RU", {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"});
+  return isNaN(d) ? esc(ts) : d.toLocaleString("ru-RU", {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23"});
 }
 
 function ago(ts) {
@@ -1342,7 +1342,7 @@ function render() {
 
 function stampUpdated() {
   const el = document.getElementById("sub");
-  if (el && updatedAt) el.textContent = "обновлено " + updatedAt.toLocaleTimeString("ru-RU");
+  if (el && updatedAt) el.textContent = "обновлено " + updatedAt.toLocaleTimeString("ru-RU", {hourCycle: "h23"});
 }
 
 function safeRender() {
@@ -1579,7 +1579,7 @@ async function sendReply(f, quick) {
   try {
     const {res, data: r} = await post("/api/reply", {session_id: f.dataset.session, stream: f.dataset.stream, text, images, asks, kind});
     if (res.ok && r.ok) {
-      note("", "Доставлено оркестратору · " + new Date().toLocaleTimeString("ru-RU"));
+      note("", "Доставлено оркестратору · " + new Date().toLocaleTimeString("ru-RU", {hourCycle: "h23"}));
       if (!quick) {
         drafts.delete(f.dataset.key); saveDrafts(); ta.value = "";
         list.forEach(a => URL.revokeObjectURL(a.url)); attachments.delete(f.dataset.key); redrawThumbs(f);
