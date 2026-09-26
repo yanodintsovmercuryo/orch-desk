@@ -969,8 +969,13 @@ function prepare(d) {
     if (s.deskAsks.some(LIVE_ASK)) { s.owner_asks = []; s.ask = {}; }
   });
   d.deskGeneral = asksList.filter(a => !a.task || !openIds.has(a.task));
-  d.general_asks = (d.general_asks || []).filter(g => !asksList.some(a => LIVE_ASK(a)
-    && ((a.task && g.item.includes(a.task)) || similar(a.question, g.item))));
+  // A waiting item that only names desk asks is already on the page as those asks.
+  const known = new Set(asksList.map(a => a.id));
+  d.general_asks = (d.general_asks || []).filter(g => {
+    const refs = g.item.match(/\bask-\d+\b/g) || [];
+    if (refs.length && refs.every(r => known.has(r))) return false;
+    return !asksList.some(a => LIVE_ASK(a) && ((a.task && g.item.includes(a.task)) || similar(a.question, g.item)));
+  });
 }
 
 function deskState(list) {
