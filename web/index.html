@@ -95,7 +95,6 @@ table.tasks { width: 100%; border-collapse: collapse; font-size: var(--text-sm);
 .pbar { display: flex; }
 .pbar i { display: block; height: 100%; }
 .pbar i.done { background: var(--text-primary); }
-.pbar i.dead { background: var(--text-muted); opacity: .45; }
 .pbar i.started { background: var(--text-muted); }
 .epic .num .wip { color: var(--text-muted); }
 .epic .num { font-size: var(--text-xs); color: var(--text-secondary); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -1084,9 +1083,9 @@ function epicRow(e, summary) {
   const tag = summary ? "summary" : "div";
   if (e.loading) return `<${tag} class="epic">${name}<span class="pbar"></span><span class="num muted">читаю…</span></${tag}>`;
   const pct = n => e.total ? (100 * n / e.total).toFixed(1) + "%" : "0%";
-  const tip = `${e.done} сделано · ${e.dead} отменено · ${e.started} в работе · ${e.total - e.closed - e.started} не начато`;
-  return `<${tag} class="epic" title="${tip}">${name}<span class="pbar"><i class="done" style="width:${pct(e.done)}"></i><i class="dead" style="width:${pct(e.dead)}"></i><i class="started" style="width:${pct(e.started)}"></i></span>
-    <span class="num"><b>${e.closed}</b>/${e.total}${e.started ? ` · <span class="wip">${e.started} в работе</span>` : ""}${e.today ? ` · +${e.today}` : ""}</span></${tag}>`;
+  const tip = `${e.done} сделано · ${e.started} в работе · ${e.total - e.done - e.started} не начато${e.dead ? ` · ${e.dead} отменено, не считаются` : ""}`;
+  return `<${tag} class="epic" title="${tip}">${name}<span class="pbar"><i class="done" style="width:${pct(e.done)}"></i><i class="started" style="width:${pct(e.started)}"></i></span>
+    <span class="num"><b>${e.done}</b>/${e.total}${e.started ? ` · <span class="wip">${e.started} в работе</span>` : ""}${e.today ? ` · +${e.today}` : ""}</span></${tag}>`;
 }
 
 function epicsPanel(list) {
@@ -1097,7 +1096,7 @@ function epicsPanel(list) {
     const stages = (e.stages || []).map(st => epicRow(st)).join("");
     return `<details class="epic-fold" data-key="${esc(k)}" ${openDetails.has(k) ? "open" : ""}>${epicRow(e, true)}<div class="epic-stages">${stages}</div></details>`;
   }).join("");
-  return `<section class="panel"><div class="epics">${rows}<div class="foot">как считает Linear: закрытые (сделано + отменено) / все подзадачи по дереву · серым — в работе · +N сделано сегодня</div></div></section>`;
+  return `<section class="panel"><div class="epics">${rows}<div class="foot">сделано / все подзадачи по дереву без отменённых · серым — в работе · +N сделано сегодня</div></div></section>`;
 }
 
 function homeView() {

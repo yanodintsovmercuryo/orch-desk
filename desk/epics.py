@@ -89,12 +89,12 @@ def subtree(key):
 
 
 def _count(rows, since):
-    """Linear's own arithmetic: closed = Done + Canceled + Duplicate over every sub-issue."""
-    done = [r for r in rows if r["state"] == "Done"]
-    dead = [r for r in rows if r["state"] in DEAD_STATES]
-    started = [r for r in rows if r["state"] in STARTED_STATES]
+    """Every sub-issue in the tree, as Linear counts them, minus the canceled and duplicate ones."""
+    live = [r for r in rows if r["state"] not in DEAD_STATES]
+    done = [r for r in live if r["state"] == "Done"]
+    started = [r for r in live if r["state"] in STARTED_STATES]
     today = [r for r in done if r["completed"] and _local(r["completed"]) >= since]
-    return {"total": len(rows), "done": len(done), "dead": len(dead), "closed": len(done) + len(dead),
+    return {"total": len(live), "done": len(done), "dead": len(rows) - len(live),
             "started": len(started), "today": len(today)}
 
 
