@@ -37,7 +37,9 @@ html, body { margin: 0; background: var(--surface-base); color: var(--text-prima
 body { font: 400 var(--text-base)/1.55 var(--font-sans); -webkit-font-smoothing: antialiased; }
 a { color: var(--text-primary); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
 a:hover { text-decoration-color: var(--text-primary); }
-code { font: 0.86em var(--font-mono); background: var(--surface-raised); border: 1px solid var(--border); padding: 0 5px; border-radius: 5px; }
+code { font: 0.86em var(--font-mono); background: var(--surface-raised); border: 1px solid var(--border); padding: 0 5px; border-radius: 5px; overflow-wrap: anywhere; }
+/* A long token (a CSV header, a path) must wrap, never widen the column. */
+.panel, .quote, .task-layout > * { min-width: 0; overflow-wrap: anywhere; }
 pre { font: var(--text-xs)/1.5 var(--font-mono); background: var(--surface-inset); border: 1px solid var(--border); padding: var(--space-3); border-radius: var(--r-sm); overflow-x: auto; white-space: pre-wrap; margin: 0; }
 pre code { background: none; border: 0; padding: 0; }
 
