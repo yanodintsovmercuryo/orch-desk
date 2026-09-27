@@ -18,7 +18,7 @@ CONFIG = os.path.join(ROOT, "config.json")
 MEMORY = os.path.join(ROOT, "supervisor.json")
 EVENTS = os.path.join(ROOT, "events.jsonl")
 DEFAULTS = {"wip": 4, "nudge": True, "notify": True, "interval": 60,
-            "idle_min": 10, "silent_min": 45, "answer_min": 5}
+            "idle_min": 10, "silent_min": 45, "answer_min": 5, "consumed_hours": 6}
 _lock = threading.Lock()
 
 
@@ -129,6 +129,13 @@ class Supervisor:
             if idle and unread:
                 self._nudge("unread", 15, orch, "есть непрочитанные ответы владельца ("
                             + ", ".join(a["id"] for a in unread) + "): выполни `desk answers`.", cfg)
+            # Read but never closed: the owner's tracker stays on "прочитал" until `desk done` or `withdraw`.
+            stale = [a for a in asks.all_asks() if a["status"] == "consumed"
+                     and time.time() - datetime.fromisoformat(a["history"][-1]["ts"]).timestamp() > cfg["consumed_hours"] * 3600]
+            if stale:
+                self._nudge("stale-consumed", 6 * 60, orch, "ответы владельца прочитаны, но вопросы не закрыты дольше "
+                            f"{cfg['consumed_hours']} ч (" + ", ".join(a["id"] for a in stale)
+                            + "): для каждого `desk done ask-N --note …` или `desk withdraw`, либо напиши, чем заблокирован.", cfg)
             streams = [s for s in data["streams"] if s["orchestrator"] == orch["name"] and not s["closed"]]
             running = [s for s in streams if not s.get("prepared")]
             last_turn = orch.get("message_ts") or ""
