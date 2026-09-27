@@ -17,6 +17,7 @@ from . import asks, links
 PARENT_TTL = 3600  # a card's parent rarely changes
 CHILDREN_TTL = 300
 DEAD_STATES = ("Canceled", "Duplicate")
+STARTED_STATES = ("In Progress", "In Review")
 _cache = {}
 _pending = set()
 _lock = threading.Lock()
@@ -62,19 +63,39 @@ def card(key):
 
 
 def children(key):
+    """Direct children with their state; `kids` says which of them have children of their own."""
     def fetch():
         out = _run(["linear", "issues", "list", "--parent", key, "--include-archived", "--limit", "250"])
         rows = out.get("nodes", out) if isinstance(out, dict) else out
         return {"rows": [{"id": r.get("identifier"), "title": r.get("title", ""), "state": (r.get("state") or {}).get("name", ""),
-                          "completed": r.get("completedAt") or "", "url": r.get("url", "")} for r in rows]}
+                          "completed": r.get("completedAt") or "", "url": r.get("url", ""),
+                          "kids": bool(((r.get("children") or {}).get("nodes")) or [])} for r in rows]}
     return _cached(("children", key), CHILDREN_TTL, fetch)
 
 
+def subtree(key):
+    """Every descendant, as Linear counts sub-issues; None while any level is still loading."""
+    top = children(key)
+    if not top or top.get("error"):
+        return None
+    rows = list(top["rows"])
+    for r in top["rows"]:
+        if r["kids"]:
+            below = subtree(r["id"])
+            if below is None:
+                return None
+            rows.extend(below)
+    return rows
+
+
 def _count(rows, since):
-    live = [r for r in rows if r["state"] not in DEAD_STATES]
-    done = [r for r in live if r["state"] == "Done"]
+    """Linear's own arithmetic: closed = Done + Canceled + Duplicate over every sub-issue."""
+    done = [r for r in rows if r["state"] == "Done"]
+    dead = [r for r in rows if r["state"] in DEAD_STATES]
+    started = [r for r in rows if r["state"] in STARTED_STATES]
     today = [r for r in done if r["completed"] and _local(r["completed"]) >= since]
-    return {"total": len(live), "done": len(done), "today": len(today)}
+    return {"total": len(rows), "done": len(done), "dead": len(dead), "closed": len(done) + len(dead),
+            "started": len(started), "today": len(today)}
 
 
 def _local(ts):
@@ -125,31 +146,21 @@ def summary(streams):
             epics.setdefault(top, set()).update(chain[:-1])
     out = []
     for e, seen_stages in epics.items():
-        c, kids = card(e), children(e)
-        if not kids or kids.get("error") or not c:
+        c, kids, rows = card(e), children(e), subtree(e)
+        if rows is None or not c:
             out.append({"id": e, "title": (c or {}).get("title", ""), "url": (c or {}).get("url", ""), "loading": True})
             continue
-        rows = kids["rows"]
-        staged = any(r["id"] in seen_stages for r in rows)
-        item = {"id": e, "title": c.get("title", ""), "url": c.get("url", ""), "staged": staged}
-        if staged:
-            agg, stage_list, loading = {"total": 0, "done": 0, "today": 0}, [], False
-            for r in rows:
+        item = {"id": e, "title": c.get("title", ""), "url": c.get("url", ""), **_count(rows, since)}
+        if any(r["id"] in seen_stages for r in kids["rows"]):
+            stage_list = []
+            for r in kids["rows"]:
                 if r["state"] in DEAD_STATES:
                     continue
-                sub = children(r["id"])
-                if not sub or sub.get("error"):
-                    loading = True
-                    stage_list.append({"id": r["id"], "title": r["title"], "url": r["url"], "loading": True})
-                    continue
-                n = _count(sub["rows"], since)
-                for k in agg:
-                    agg[k] += n[k]
-                stage_list.append({"id": r["id"], "title": r["title"], "url": r["url"], **n})
+                below = subtree(r["id"]) if r["kids"] else []
+                st = {"id": r["id"], "title": r["title"], "url": r["url"]}
+                stage_list.append({**st, "loading": True} if below is None else {**st, **_count(below, since)})
             stage_list.sort(key=lambda st: (_stage_no(st["title"]), st["id"]))
-            item.update(agg, stages=stage_list, loading=loading)
-        else:
-            item.update(_count(rows, since))
+            item.update(staged=True, stages=stage_list)
         out.append(item)
     out.sort(key=lambda x: x["id"])
     return out
