@@ -122,6 +122,7 @@ class Stream:
     derived: dict
     events: list = field(default_factory=list)
     error: str = ""
+    note: str = ""
     prepared: bool = False
 
 
@@ -144,6 +145,22 @@ def orchestrators(root=None):
     return out
 
 
+BRIEF_TREE_RE = re.compile(r"(/Users/[^\s`]+/(?:orca/workspaces|go/src/github\.com/MercuryoPro)/[^\s`/]+/[^\s`]+?)\s*(?:—|-)\s*branch\s*`([^`]+)`")
+
+
+def header_from_brief(path, sid):
+    """repository, branch and tracker from a brief's worktree line; a bare tracker when there is none."""
+    header = {"tracker": sid}
+    try:
+        with open(path, encoding="utf-8") as f:
+            m = BRIEF_TREE_RE.search(f.read())
+    except OSError:
+        return header
+    if m:
+        header.update(repository=m.group(1).rstrip("/"), branch=m.group(2))
+    return header
+
+
 def streams(orch, checkpoints):
     out = []
     for sdir in sorted(glob.glob(os.path.join(orch["dir"], "streams", "*"))):
@@ -158,8 +175,10 @@ def streams(orch, checkpoints):
         try:
             with open(card, encoding="utf-8") as f:
                 st.header, st.derived = parse_card(f.read())
-        except OSError as e:
-            st.error = f"card.md: {e}"
+        except OSError:
+            # Launched without a card yet: the brief names the worktree and branch, which is enough to show.
+            st.header = header_from_brief(os.path.join(sdir, "brief.md"), sid)
+            st.note = "карточка потока ещё не записана — данные из брифа"
         try:
             with open(journal, encoding="utf-8") as f:
                 st.events = parse_journal(f.read(), checkpoints)

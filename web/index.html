@@ -877,7 +877,7 @@ function fitDescriptions() {
 }
 
 function taskView(s) {
-  const err = s.error ? `<div class="error">${esc(s.error)}</div>` : "";
+  const err = (s.error ? `<div class="error">${esc(s.error)}</div>` : "") + (s.note ? `<div class="muted small">${esc(s.note)}</div>` : "");
   const rs = streamReply(s);
   const idle = s.closed ? "" : rs && rs.kind === "resolved"
     ? `<section class="panel"><div class="panel-head"><h2>Вопрос снят</h2></div><div class="panel-body">${tracker(rs)}</div></section>`

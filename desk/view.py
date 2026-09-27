@@ -75,7 +75,7 @@ def build(root=None):
             "prepared": st.prepared,
             "workspace": contour,
             "id": st.id, "orchestrator": orch_name, "header": st.header, "derived": st.derived,
-            "error": st.error, "progress": {"index": idx, "total": len(state.ORDERED), "intent_moved": moved},
+            "error": st.error, "note": st.note, "progress": {"index": idx, "total": len(state.ORDERED), "intent_moved": moved},
             "milestones": state.milestones(st.events),
             "events": [_event_json(e) for e in st.events],
             "last_ts": st.events[-1].ts if st.events else "",
