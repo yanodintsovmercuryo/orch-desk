@@ -21,6 +21,32 @@ STARTED_STATES = ("In Progress", "In Review")
 _cache = {}
 _pending = set()
 _lock = threading.Lock()
+CACHE_FILE = os.path.join(asks.ROOT, "epics-cache.json")
+
+
+def _load_cache():
+    """Yesterday's answers are better than a blank panel after a restart; they refresh in the background."""
+    try:
+        with open(CACHE_FILE, encoding="utf-8") as f:
+            for k, (ts, value) in json.load(f).items():
+                kind, key = k.split(":", 1)
+                _cache[(kind, key)] = (ts, value)
+    except (OSError, ValueError):
+        pass
+
+
+def _save_cache():
+    try:
+        os.makedirs(asks.ROOT, exist_ok=True)
+        tmp = CACHE_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({f"{k[0]}:{k[1]}": v for k, v in _cache.items() if not (v[1] or {}).get("error")}, f, ensure_ascii=False)
+        os.replace(tmp, CACHE_FILE)
+    except OSError:
+        pass
+
+
+_load_cache()
 
 
 def _run(args):
@@ -49,6 +75,8 @@ def _refresh(key, fn):
     with _lock:
         _cache[key] = (time.time(), value)
         _pending.discard(key)
+        if not _pending:
+            _save_cache()
 
 
 def card(key):
