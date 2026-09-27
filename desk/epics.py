@@ -6,6 +6,7 @@ Everything is stale-while-revalidate over the local `linear` CLI, so a page neve
 
 import json
 import os
+import re
 import subprocess
 import threading
 import time
@@ -94,6 +95,12 @@ def _ancestry(tracker):
     return chain
 
 
+def _stage_no(title):
+    """The stage number a roadmap card leads with ("[notifier] 12 · …"); 999 when it has none."""
+    m = re.search(r"(?:^|\]\s*)(\d+)\s*·", title)
+    return int(m.group(1)) if m else 999
+
+
 def configured():
     cfg = asks.ROOT and os.path.join(asks.ROOT, "config.json")
     try:
@@ -139,6 +146,7 @@ def summary(streams):
                 for k in agg:
                     agg[k] += n[k]
                 stage_list.append({"id": r["id"], "title": r["title"], "url": r["url"], **n})
+            stage_list.sort(key=lambda st: (_stage_no(st["title"]), st["id"]))
             item.update(agg, stages=stage_list, loading=loading)
         else:
             item.update(_count(rows, since))
