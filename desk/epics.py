@@ -179,15 +179,18 @@ def summary(streams):
             out.append({"id": e, "title": (c or {}).get("title", ""), "url": (c or {}).get("url", ""), "loading": True})
             continue
         item = {"id": e, "title": c.get("title", ""), "url": c.get("url", ""), **_count(rows, since)}
-        if any(r["id"] in seen_stages for r in kids["rows"]):
+        # Children with children of their own are sub-epics; the leaves gather in one group.
+        subs = [r for r in kids["rows"] if r["kids"] and r["state"] not in DEAD_STATES]
+        if subs:
             stage_list = []
-            for r in kids["rows"]:
-                if r["state"] in DEAD_STATES:
-                    continue
-                below = subtree(r["id"]) if r["kids"] else []
+            for r in subs:
+                below = subtree(r["id"])
                 st = {"id": r["id"], "title": r["title"], "url": r["url"]}
                 stage_list.append({**st, "loading": True} if below is None else {**st, **_count(below, since)})
             stage_list.sort(key=lambda st: (_stage_no(st["title"]), st["id"]))
+            leaves = [r for r in kids["rows"] if not r["kids"]]
+            if leaves:
+                stage_list.append({"id": "", "title": "Отдельные задачи", "url": c.get("url", ""), **_count(leaves, since)})
             item.update(staged=True, stages=stage_list)
         out.append(item)
     out.sort(key=lambda x: x["id"])
