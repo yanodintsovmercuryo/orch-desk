@@ -8,7 +8,8 @@ from . import state
 
 SCREENS = os.path.expanduser("~/screens")
 IMAGE_EXT = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif"}
-PAIR_RE = re.compile(r"^(?P<base>.+?)-(?P<side>before|after)$")
+# The side may sit before a variant: 01-price-book-before-dark-390 pairs with 01-price-book-after-dark-390.
+PAIR_RE = re.compile(r"^(?P<base>.+?)[-_](?P<side>before|after)(?P<variant>(?:[-_][A-Za-z0-9]+)*)$")
 
 
 def roots():
@@ -42,7 +43,7 @@ def listing(path):
         if ext.lower() not in IMAGE_EXT:
             continue
         m = PAIR_RE.match(stem)
-        base, side = (m.group("base"), m.group("side")) if m else (stem, "after")
+        base, side = (m.group("base") + m.group("variant"), m.group("side")) if m else (stem, "after")
         if base not in groups:
             groups[base] = {"name": base}
             order.append(base)
