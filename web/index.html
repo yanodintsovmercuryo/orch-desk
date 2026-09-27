@@ -413,7 +413,8 @@ const shotLink = p => `<a class="shots" href="#" data-shots="${esc(p)}">${icon("
 // An absolute path in orchestrator text: images open the screenshot viewer, other files the code view.
 function pathLink(m, path, line, end, hashLine) {
   const shown = m;
-  if (IMAGE_RE.test(path) || /\/screens\//.test(path) && !/\.[a-z0-9]{1,8}$/i.test(path)) return shotLink(path);
+  // Anything under ~/screens opens the gallery of its folder, an index.txt included.
+  if (IMAGE_RE.test(path) || /\/screens\//.test(path)) return shotLink(path);
   if (!/\.[A-Za-z0-9]{1,8}$/.test(path)) return m;
   const ln = line || hashLine || "";
   // Inside a repository only the repo-relative part is shown; the full path stays in the tooltip.
