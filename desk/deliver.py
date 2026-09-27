@@ -20,19 +20,38 @@ def _run(args, timeout=20):
     return res.stdout
 
 
-_agents = {"ts": 0.0, "rows": []}
+_agents = {"ts": 0.0, "rows": [], "pending": False}
 _agents_lock = threading.Lock()
 
 
+def _refresh_agents():
+    try:
+        rows = json.loads(_run(["claude", "agents", "--json"]))
+    except Exception:
+        rows = None
+    with _agents_lock:
+        if rows is not None:
+            _agents.update(ts=time.time(), rows=rows)
+        _agents["pending"] = False
+
+
 def agents(max_age=2.0):
-    """`claude agents --json`, reused for a couple of seconds across pollers."""
+    """`claude agents --json` takes seconds; a page reads the last answer and a refresh runs behind it.
+
+    max_age=0 waits for a fresh answer (a send must not target a dead session)."""
     with _agents_lock:
-        if time.time() - _agents["ts"] < max_age:
+        fresh = time.time() - _agents["ts"] < max_age
+        have = bool(_agents["ts"])
+        if not fresh and not _agents["pending"]:
+            _agents["pending"] = True
+            if have and max_age > 0:
+                threading.Thread(target=_refresh_agents, daemon=True).start()
+                return _agents["rows"]
+        elif fresh or (have and max_age > 0):
             return _agents["rows"]
-    rows = json.loads(_run(["claude", "agents", "--json"]))
+    _refresh_agents()
     with _agents_lock:
-        _agents.update(ts=time.time(), rows=rows)
-    return rows
+        return _agents["rows"]
 
 
 def session_status(session_id):

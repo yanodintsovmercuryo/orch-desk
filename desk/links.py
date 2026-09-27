@@ -1,6 +1,7 @@
 """Linear and GitHub links for a stream, through the local CLIs, cached."""
 
 import json
+import os
 import re
 import subprocess
 import threading
@@ -12,6 +13,32 @@ _cache = {}
 _pending = set()
 _lock = threading.Lock()
 _slots = threading.Semaphore(6)
+CACHE_FILE = os.path.join(os.path.expanduser("~/.local/state/desk"), "links-cache.json")
+
+
+def _load_cache():
+    """Stale links beat blank ones after a restart; every entry refreshes in the background anyway."""
+    try:
+        with open(CACHE_FILE, encoding="utf-8") as f:
+            for row in json.load(f):
+                _cache[tuple(row["key"])] = (row["ts"], row["value"])
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+
+
+def _save_cache():
+    try:
+        os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
+        tmp = CACHE_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump([{"key": list(k), "ts": v[0], "value": v[1]} for k, v in _cache.items()
+                       if not (v[1] or {}).get("error")], f, ensure_ascii=False)
+        os.replace(tmp, CACHE_FILE)
+    except OSError:
+        pass
+
+
+_load_cache()
 
 
 def _run(args, timeout=15):
@@ -30,6 +57,8 @@ def _refresh(key, fn):
     with _lock:
         _cache[key] = (time.time(), value)
         _pending.discard(key)
+        if not _pending:
+            _save_cache()
 
 
 def cached(key, fn):
