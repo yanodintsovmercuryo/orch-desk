@@ -134,6 +134,11 @@ details.epic-fold[open] > summary.epic { margin-bottom: 0; }
 .question li { margin: 2px 0; }
 .question ul { margin: 0; padding-left: 20px; }
 .msg-label { font-size: var(--text-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin: var(--space-4) 0 var(--space-2); }
+.desc .desc-body { max-height: calc(20 * 1.65em + 2 * var(--space-4)); overflow: hidden; position: relative; }
+.desc.open .desc-body { max-height: none; }
+.desc:not(.open):not(.short) .desc-body::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3.5em; background: linear-gradient(transparent, var(--surface-inset)); }
+.desc .desc-toggle { margin-top: var(--space-2); }
+.desc.short .desc-toggle { display: none; }
 .quote { background: var(--surface-inset); border: 1px solid var(--border); border-radius: var(--r); padding: var(--space-4) var(--space-5); font-size: 0.95rem; line-height: 1.65; }
 .quote > :first-child { margin-top: 0; } .quote > :last-child { margin-bottom: 0; }
 .quote p { margin: 0 0 var(--space-3); }
@@ -852,6 +857,25 @@ function journalPanel(s) {
     <div class="panel-body"><ul class="log">${rows}</ul></div></section>`;
 }
 
+// The Linear card's description, 20 lines at first, the rest behind "Развернуть".
+function descriptionPanel(s) {
+  const lin = s.links.linear || {};
+  if (!lin.description) return "";
+  const k = "desc:" + s.id, open = openDetails.has(k);
+  return `<section class="panel desc ${open ? "open" : ""}" data-desc="${esc(k)}"><div class="panel-head"><h2>${icon("file")}Описание задачи</h2>
+      <span class="right"><a class="muted small" href="${esc(lin.url || "#")}" target="_blank" rel="noopener">${esc(s.header.tracker || s.id)}</a></span></div>
+    <div class="panel-body"><div class="desc-body quote">${md(lin.description)}</div>
+      <button type="button" class="toggle desc-toggle">${open ? "Свернуть" : "Развернуть"}</button></div></section>`;
+}
+
+function fitDescriptions() {
+  document.querySelectorAll(".desc").forEach(p => {
+    const body = p.querySelector(".desc-body");
+    // Nothing hidden: no fade and no button.
+    p.classList.toggle("short", !p.classList.contains("open") && body.scrollHeight <= body.clientHeight + 4);
+  });
+}
+
 function taskView(s) {
   const err = s.error ? `<div class="error">${esc(s.error)}</div>` : "";
   const rs = streamReply(s);
@@ -863,7 +887,7 @@ function taskView(s) {
       ${s.last_ts ? `<span class="st muted">${icon("clock")}${esc(ago(s.last_ts))}</span>` : ""}${splitTitle(titleOf(s)).tags.filter(t => t !== repoOf(s)).map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
       <h1 class="big">${repoOf(s) ? `<span class="repo">${esc(repoOf(s))}</span>` : ""}${esc(splitTitle(titleOf(s)).title)}</h1>${err}</header>
     <div class="task-layout">
-      <div class="task-main">${promptPanel(s)}${(s.deskAsks || []).map(deskAskPanel).join("")}${s.owner_asks.length ? askPanel("s:" + s.id, s.owner_asks, s.ask || {}, sessionOf(s.orchestrator), s.id, rs) : idle}${notePanel(s)}${advisorPanel(s)}${s.prepared ? "" : journalPanel(s)}</div>
+      <div class="task-main">${descriptionPanel(s)}${promptPanel(s)}${(s.deskAsks || []).map(deskAskPanel).join("")}${s.owner_asks.length ? askPanel("s:" + s.id, s.owner_asks, s.ask || {}, sessionOf(s.orchestrator), s.id, rs) : idle}${notePanel(s)}${advisorPanel(s)}${s.prepared ? "" : journalPanel(s)}</div>
       <aside class="task-side">${linksPanel(s)}${contourPanel(s)}${s.prepared ? "" : stagesPanel(s)}</aside>
     </div>`;
 }
@@ -1404,6 +1428,7 @@ function render() {
     html = homeView();
   }
   document.getElementById("app").innerHTML = html;
+  fitDescriptions();
   setTimeout(loadIssues, 0);
   if (r.kind === "task" && !advisorState.has(r.id)) loadAdvisor(r.id);
   stampUpdated();
@@ -1494,6 +1519,12 @@ async function post(path, body) {
 
 document.addEventListener("click", e => {
   if (e.target.closest("button") && e.target.closest("summary.panel-head")) e.preventDefault();
+  const dt = e.target.closest(".desc-toggle");
+  if (dt) {
+    const p = dt.closest(".desc"), k = p.dataset.desc, open = !p.classList.contains("open");
+    p.classList.toggle("open", open); open ? openDetails.add(k) : openDetails.delete(k);
+    dt.textContent = open ? "Свернуть" : "Развернуть"; fitDescriptions();
+  }
   const a = e.target.closest("summary.epic a");
   if (a) { e.preventDefault(); window.open(a.href, "_blank", "noopener"); }
 });

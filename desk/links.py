@@ -75,8 +75,9 @@ def cached(key, fn):
 def linear(key):
     def fetch():
         out = json.loads(_run(["linear", "issues", "read", key, "--compact",
-                               "--fields", "identifier,title,url,state.name"]))
-        return {"url": out.get("url"), "title": out.get("title"), "state": (out.get("state") or {}).get("name")}
+                               "--fields", "identifier,title,url,state.name,description"]))
+        return {"url": out.get("url"), "title": out.get("title"), "state": (out.get("state") or {}).get("name"),
+                "description": out.get("description") or ""}
 
     info = cached(("linear", key), fetch)
     info.setdefault("url", f"https://linear.app/{LINEAR_WORKSPACE}/issue/{key}")
