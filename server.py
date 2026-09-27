@@ -11,7 +11,7 @@ import traceback
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from desk import advisor, asks, deliver, links, shots, source, state, supervisor, terminal, uploads, view, workspace
+from desk import advisor, asks, deliver, epics, links, shots, source, state, supervisor, terminal, uploads, view, workspace
 
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("DESK_PORT", "8800"))
@@ -66,6 +66,7 @@ class Handler(BaseHTTPRequestHandler):
                 data["ui_version"] = int(os.path.getmtime(os.path.join(WEB, "index.html")))
                 data["desk_asks"] = asks.visible()
                 data["supervisor"] = {"config": supervisor.config(), "events": supervisor.events(12)}
+                data["epics"] = epics.summary(data["streams"])
                 return self._send(200, data)
             except Exception:
                 return self._send(500, {"error": traceback.format_exc(limit=5)})

@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from . import deliver, links, state, terminal, transcript, workspace
 
-CLOSED_LIMIT = 15
+CLOSED_LIMIT = 500
 
 
 def _event_json(ev):
