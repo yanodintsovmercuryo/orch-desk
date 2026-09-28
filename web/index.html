@@ -102,14 +102,16 @@ table.tasks { width: 100%; border-collapse: collapse; font-size: var(--text-sm);
 .pbar i.started { background: var(--text-primary); }
 .epic .num .wip { color: var(--text-primary); font-weight: 600; }
 .epic.has-live .name a, .epic-stages .epic.has-live .name a { color: var(--text-primary); font-weight: 500; }
-.epic .live-tasks { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; padding: 0 0 2px 20px; min-width: 0; }
-.live-task { display: inline-flex; align-items: baseline; gap: 6px; max-width: 100%; padding: 2px 9px 2px 8px; border: 1px solid var(--text-primary);
-  border-radius: 999px; background: rgba(255, 255, 255, .07); color: var(--text-primary); font-size: var(--text-xs); text-decoration: none; }
-.live-task::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--text-primary); align-self: center; flex: none; animation: live-pulse 2s ease-in-out infinite; }
-.live-task:hover { background: rgba(255, 255, 255, .14); }
-.live-task .lid { font-family: var(--font-mono); }
-.live-task .lt { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 44ch; }
-.live-task .via { color: var(--text-muted); font-family: var(--font-mono); }
+.epic .live-tasks { grid-column: 1 / -1; display: grid; gap: 1px; padding: 2px 0 8px 20px; min-width: 0; }
+.live-task { display: grid; grid-template-columns: 8px 82px minmax(0, 1fr); column-gap: 10px; align-items: baseline; padding: 3px 8px; border-radius: 6px;
+  color: var(--text-primary); text-decoration: none; min-width: 0; }
+.live-tasks.with-via .live-task { grid-template-columns: 8px 76px 76px minmax(0, 1fr); }
+.live-task:hover { background: var(--surface-hover); }
+.live-task .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-primary); align-self: center; animation: live-pulse 2s ease-in-out infinite; }
+.live-task .lid { font-family: var(--font-mono); font-size: var(--text-xs); white-space: nowrap; }
+.live-task .lt { font-size: var(--text-sm); color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-task:hover .lt { color: var(--text-primary); }
+.live-task .via { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
 details.epic-fold[open] > summary .live-tasks { display: none; }
 @keyframes live-pulse { 50% { opacity: .35; } }
 .epic .num { font-size: var(--text-xs); color: var(--text-secondary); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -1163,8 +1165,10 @@ function epicRow(e, summary) {
 function liveTasks(list, withVia) {
   if (!list || !list.length) return "";
   const short = t => (t || "").replace(/^(\[[^\]]+\]\s*)+/, "");
-  return `<span class="live-tasks">${list.map(t => `<a class="live-task" href="#/task/${esc(t.id)}" title="${esc(t.title || t.id)}">
-    ${withVia && t.via ? `<span class="via">${esc(t.via)} ›</span>` : ""}<span class="lid">${esc(t.id)}</span><span class="lt">${esc(short(t.title))}</span></a>`).join("")}</span>`;
+  const rows = list.map(t => `<a class="live-task" href="#/task/${esc(t.id)}" title="${esc(t.title || t.id)}"><span class="dot"></span>`
+    + (withVia ? `<span class="via">${t.via ? esc(t.via) + " ›" : ""}</span>` : "")
+    + `<span class="lid">${esc(t.id)}</span><span class="lt">${esc(short(t.title))}</span></a>`).join("");
+  return `<span class="live-tasks${withVia ? " with-via" : ""}">${rows}</span>`;
 }
 
 function epicsPanel(list) {
