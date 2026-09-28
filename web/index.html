@@ -98,9 +98,20 @@ table.tasks { width: 100%; border-collapse: collapse; font-size: var(--text-sm);
 .pbar { height: 5px; border-radius: 3px; background: var(--border-strong); overflow: hidden; }
 .pbar { display: flex; }
 .pbar i { display: block; height: 100%; }
-.pbar i.done { background: var(--text-primary); }
-.pbar i.started { background: var(--text-muted); }
-.epic .num .wip { color: var(--text-muted); }
+.pbar i.done { background: #6a6a6a; }
+.pbar i.started { background: var(--text-primary); }
+.epic .num .wip { color: var(--text-primary); font-weight: 600; }
+.epic.has-live .name a, .epic-stages .epic.has-live .name a { color: var(--text-primary); font-weight: 500; }
+.epic .live-tasks { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; padding: 0 0 2px 20px; min-width: 0; }
+.live-task { display: inline-flex; align-items: baseline; gap: 6px; max-width: 100%; padding: 2px 9px 2px 8px; border: 1px solid var(--text-primary);
+  border-radius: 999px; background: rgba(255, 255, 255, .07); color: var(--text-primary); font-size: var(--text-xs); text-decoration: none; }
+.live-task::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--text-primary); align-self: center; flex: none; animation: live-pulse 2s ease-in-out infinite; }
+.live-task:hover { background: rgba(255, 255, 255, .14); }
+.live-task .lid { font-family: var(--font-mono); }
+.live-task .lt { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 44ch; }
+.live-task .via { color: var(--text-muted); font-family: var(--font-mono); }
+details.epic-fold[open] > summary .live-tasks { display: none; }
+@keyframes live-pulse { 50% { opacity: .35; } }
 .epic .num { font-size: var(--text-xs); color: var(--text-secondary); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .epic .num b { color: var(--text-primary); font-weight: 500; }
 .epic-stages { display: grid; gap: 6px; padding: var(--space-2) 0 var(--space-1) 22px; }
@@ -1143,8 +1154,17 @@ function epicRow(e, summary) {
   if (e.loading) return `<${tag} class="epic">${name}<span class="pbar"></span><span class="num muted">читаю…</span></${tag}>`;
   const pct = n => e.total ? (100 * n / e.total).toFixed(1) + "%" : "0%";
   const tip = esc(JSON.stringify({total: e.total, done: e.done, today: e.today, started: e.started, dead: e.dead, left: e.total - e.done}));
-  return `<${tag} class="epic" data-tip="${tip}">${name}<span class="pbar"><i class="done" style="width:${pct(e.done)}"></i><i class="started" style="width:${pct(e.started)}"></i></span>
-    <span class="num"><b>${e.done}</b>/${e.total}${e.started ? ` · <span class="wip">${e.started} в работе</span>` : ""}${e.today ? ` · +${e.today}` : ""}</span></${tag}>`;
+  const live = (e.active || []).length ? " has-live" : "";
+  return `<${tag} class="epic${live}" data-tip="${tip}">${name}<span class="pbar"><i class="done" style="width:${pct(e.done)}"></i><i class="started" style="width:${pct(e.started)}"></i></span>
+    <span class="num"><b>${e.done}</b>/${e.total}${e.started ? ` · <span class="wip">${e.started} в работе</span>` : ""}${e.today ? ` · +${e.today}` : ""}</span>${liveTasks(e.active, summary)}</${tag}>`;
+}
+
+// Running tasks under the row of the epic or sub-epic they sit in; a closed top row also names the sub-epic.
+function liveTasks(list, withVia) {
+  if (!list || !list.length) return "";
+  const short = t => (t || "").replace(/^(\[[^\]]+\]\s*)+/, "");
+  return `<span class="live-tasks">${list.map(t => `<a class="live-task" href="#/task/${esc(t.id)}" title="${esc(t.title || t.id)}">
+    ${withVia && t.via ? `<span class="via">${esc(t.via)} ›</span>` : ""}<span class="lid">${esc(t.id)}</span><span class="lt">${esc(short(t.title))}</span></a>`).join("")}</span>`;
 }
 
 function epicsPanel(list) {

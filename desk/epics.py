@@ -116,14 +116,18 @@ def subtree(key):
     return rows
 
 
-def _count(rows, since):
-    """Every sub-issue in the tree, as Linear counts them, minus the canceled and duplicate ones."""
+def _count(rows, since, active=frozenset()):
+    """Every sub-issue in the tree, as Linear counts them, minus the canceled and duplicate ones.
+
+    `started` is what runs now: cards Linear has In Progress/In Review, plus cards whose stream is open
+    on the desk even when nobody moved the card (the orchestrator does not always)."""
     live = [r for r in rows if r["state"] not in DEAD_STATES]
     done = [r for r in live if r["state"] == "Done"]
-    started = [r for r in live if r["state"] in STARTED_STATES]
+    working = {r["id"] for r in live if r["state"] in STARTED_STATES}
+    working |= {r["id"] for r in live if r["id"] in active and r["state"] != "Done"}
     today = [r for r in done if r["completed"] and _local(r["completed"]) >= since]
     return {"total": len(live), "done": len(done), "dead": len(rows) - len(live),
-            "started": len(started), "today": len(today)}
+            "started": len(working), "today": len(today)}
 
 
 def _local(ts):
@@ -159,9 +163,29 @@ def configured():
         return []
 
 
+def _running(streams):
+    """The tracker cards of the streams that run right now, each with its chain of parents."""
+    out = {}
+    for s in streams:
+        if s.get("closed") or s.get("prepared"):
+            continue
+        for t in (s.get("header", {}).get("tracker") or s.get("id", "")).replace(",", " ").split():
+            chain = _ancestry(t)
+            if chain:
+                out[t] = {"chain": chain, "title": (card(t) or {}).get("title", "")}
+    return out
+
+
+def _chips(tasks, via=False):
+    """`via` names the stage a task sits in, for the top row that shows every running task at once."""
+    return [{"id": t, "title": v["title"], **({"via": v["chain"][-2] if len(v["chain"]) > 1 else ""} if via else {})}
+            for t, v in sorted(tasks.items())]
+
+
 def summary(streams):
     """Epics found from the streams' tracker cards (or config.json `epics`), each with counts and stages."""
     since = datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
+    running = _running(streams)
     epics, stages = {}, {}
     for e in configured():
         epics[e] = set()
@@ -178,19 +202,24 @@ def summary(streams):
         if rows is None or not c:
             out.append({"id": e, "title": (c or {}).get("title", ""), "url": (c or {}).get("url", ""), "loading": True})
             continue
-        item = {"id": e, "title": c.get("title", ""), "url": c.get("url", ""), **_count(rows, since)}
+        mine = {t: v for t, v in running.items() if v["chain"][-1] == e}
+        item = {"id": e, "title": c.get("title", ""), "url": c.get("url", ""), **_count(rows, since, set(mine)),
+                "active": _chips(mine, via=True)}
         # Children with children of their own are sub-epics; the leaves gather in one group.
         subs = [r for r in kids["rows"] if r["kids"] and r["state"] not in DEAD_STATES]
         if subs:
             stage_list = []
             for r in subs:
                 below = subtree(r["id"])
-                st = {"id": r["id"], "title": r["title"], "url": r["url"]}
-                stage_list.append({**st, "loading": True} if below is None else {**st, **_count(below, since)})
+                in_stage = {t: v for t, v in mine.items() if len(v["chain"]) > 1 and v["chain"][-2] == r["id"]}
+                st = {"id": r["id"], "title": r["title"], "url": r["url"], "active": _chips(in_stage)}
+                stage_list.append({**st, "loading": True} if below is None else {**st, **_count(below, since, set(in_stage))})
             stage_list.sort(key=lambda st: (_stage_no(st["title"]), st["id"]))
             leaves = [r for r in kids["rows"] if not r["kids"]]
             if leaves:
-                stage_list.append({"id": "", "title": "Отдельные задачи", "url": c.get("url", ""), **_count(leaves, since)})
+                direct = {t: v for t, v in mine.items() if len(v["chain"]) == 1}
+                stage_list.append({"id": "", "title": "Отдельные задачи", "url": c.get("url", ""),
+                                   **_count(leaves, since, set(direct)), "active": _chips(direct)})
             item.update(staged=True, stages=stage_list)
         out.append(item)
     out.sort(key=lambda x: x["id"])

@@ -374,3 +374,27 @@ class UsageTest(unittest.TestCase):
         with open(path, "rb") as fh:
             self.assertEqual(fh.read()[rec["offset"]:][:8], b'{"type":')
         self.assertAlmostEqual(usage.weight([100, 10, 1000, 50000]), 100 * 5 + 10 + 1250 + 5000)
+
+
+class EpicCountTest(unittest.TestCase):
+    ROWS = [
+        {"id": "MER-1", "state": "Done", "completed": ""},
+        {"id": "MER-2", "state": "In Progress", "completed": ""},
+        {"id": "MER-3", "state": "Backlog", "completed": ""},
+        {"id": "MER-4", "state": "Backlog", "completed": ""},
+        {"id": "MER-5", "state": "Canceled", "completed": ""},
+    ]
+
+    def test_started_is_linear_progress_plus_open_streams_without_double_counting(self):
+        from datetime import datetime
+        from desk import epics
+        since = datetime.now().astimezone()
+        got = epics._count(self.ROWS, since, {"MER-2", "MER-3"})
+        self.assertEqual((got["total"], got["done"], got["started"], got["dead"]), (4, 1, 2, 1))
+
+    def test_a_done_or_canceled_card_with_an_open_stream_is_not_working(self):
+        from datetime import datetime
+        from desk import epics
+        since = datetime.now().astimezone()
+        got = epics._count(self.ROWS, since, {"MER-1", "MER-5"})
+        self.assertEqual(got["started"], 1)  # only MER-2 (In Progress in Linear)
