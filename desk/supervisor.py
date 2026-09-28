@@ -6,6 +6,7 @@ orchestrator with one short line in its terminal; every alert goes to an events 
 
 import json
 import os
+import shutil
 import subprocess
 import threading
 import time
@@ -44,6 +45,7 @@ def config():
 
 def set_config(patch):
     cfg = config()
+    old_wip = cfg.get("wip")
     for k, v in patch.items():
         if k in ("nudge", "notify"):
             cfg[k] = bool(v)
@@ -52,7 +54,34 @@ def set_config(patch):
         elif k == "ctx_limit":
             cfg[k] = max(100000, min(900000, int(v)))
     _save(CONFIG, {k: cfg[k] for k in ("wip", "nudge", "notify", "ctx_limit")})
+    if "wip" in patch and cfg["wip"] != old_wip:
+        _mandate_wip(cfg["wip"])
     return cfg
+
+
+def _mandate_wip(n):
+    """The site's wip control is cosmetic until this runs: the orchestrator's real cap lives in
+    its own queue.md as an owner rule, read only from mandates.md — this is the one write path
+    that reaches it, so a click here is the only thing that changes what actually launches."""
+    orch_bin = shutil.which("orch") or os.path.expanduser("~/.local/bin/orch")
+    text = (f"От владельца {datetime.now().astimezone().strftime('%Y-%m-%d')}: лимит одновременных "
+            f"стримов — {n} (изменено на desk).")
+    try:
+        subprocess.run([orch_bin, "mandate", text], capture_output=True, text=True, timeout=15, check=True)
+    except Exception as e:
+        _event("error", f"не удалось записать мандат лимита стримов: {str(e)[:200]}")
+        return
+    _event("nudge", f"мандат записан: лимит стримов {n}")
+    for orch in view.build_orchestrators():
+        if not orch.get("session_id"):
+            continue
+        try:
+            ok = deliver.poke(orch["session_id"],
+                              f"[desk] владелец поменял лимит параллельных стримов на {n} — "
+                              f"мандат записан в mandates.md, применяй.").get("ok")
+        except Exception:
+            ok = False
+        _event("nudge", f"{orch['name']}: лимит стримов {n}", sent=ok)
 
 
 def events(limit=30):

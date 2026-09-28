@@ -1604,7 +1604,19 @@ document.addEventListener("click", async e => {
   const sv = e.target.closest("[data-sv], [data-sv-wip]");
   if (sv) {
     const c = (last.supervisor || {}).config || {};
-    const patch = sv.dataset.svWip ? {wip: Number(sv.dataset.svWip)} : {[sv.dataset.sv]: !c[sv.dataset.sv]};
+    if (sv.dataset.svWip) {
+      const n = Number(sv.dataset.svWip);
+      if (n === c.wip) return;
+      const ok = await dialog({title: "Изменить лимит параллельных стримов?",
+        body: `Оркестратор держит не больше <b>${c.wip}</b> потоков одновременно — это его собственное правило, записанное как мандат владельца. Сменить на <b>${n}</b> запишет новый мандат и сразу пошлёт его в терминал оркестратора.`,
+        ok: `Поставить ${n}`});
+      if (!ok) return;
+      const {res, data} = await post("/api/supervisor/config", {wip: n});
+      if (res.ok) { last.supervisor.config = data; safeRender(); toast(`Лимит стримов: ${n} — мандат отправлен оркестратору`); }
+      else toast(data.error || "Не сохранилось");
+      return;
+    }
+    const patch = {[sv.dataset.sv]: !c[sv.dataset.sv]};
     const {res, data} = await post("/api/supervisor/config", patch);
     if (res.ok) { last.supervisor.config = data; safeRender(); } else toast(data.error || "Не сохранилось");
     return;
