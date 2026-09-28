@@ -11,14 +11,14 @@ import threading
 import time
 from datetime import datetime
 
-from . import asks, deliver, view
+from . import asks, deliver, usage, view
 
 ROOT = asks.ROOT
 CONFIG = os.path.join(ROOT, "config.json")
 MEMORY = os.path.join(ROOT, "supervisor.json")
 EVENTS = os.path.join(ROOT, "events.jsonl")
 DEFAULTS = {"wip": 4, "nudge": True, "notify": True, "interval": 60,
-            "idle_min": 10, "silent_min": 45, "answer_min": 5, "consumed_hours": 6}
+            "idle_min": 10, "silent_min": 45, "answer_min": 5, "consumed_hours": 6, "ctx_limit": 250000}
 _lock = threading.Lock()
 
 
@@ -49,7 +49,9 @@ def set_config(patch):
             cfg[k] = bool(v)
         elif k == "wip":
             cfg[k] = max(1, min(8, int(v)))
-    _save(CONFIG, {k: cfg[k] for k in ("wip", "nudge", "notify")})
+        elif k == "ctx_limit":
+            cfg[k] = max(100000, min(900000, int(v)))
+    _save(CONFIG, {k: cfg[k] for k in ("wip", "nudge", "notify", "ctx_limit")})
     return cfg
 
 
@@ -124,6 +126,11 @@ class Supervisor:
                                  f"{orch['name']}: сессии {orch['session_id'][:8]} нет среди запущенных", cfg)
                 continue
             idle = agent.get("status") == "idle"
+            # A context past the limit makes every turn cost that much again; only the owner can /compact.
+            ctx, model = usage.orchestrator_context(orch["session_id"])
+            if ctx > cfg["ctx_limit"]:
+                self._tell_owner("ctx:" + orch["name"], 60, "Контекст оркестратора раздулся",
+                                 f"{orch['name']}: {ctx // 1000}k токенов на вызов ({model or 'модель ?'}) — в его окне набери /compact", cfg)
             unread = [a for a in live if a["status"] == "answered"
                       and time.time() - datetime.fromisoformat(a["answer"]["ts"]).timestamp() > cfg["answer_min"] * 60]
             if idle and unread:
@@ -170,6 +177,7 @@ def start():
 
     def loop():
         time.sleep(20)
+        usage.refresh_async()
         while True:
             try:
                 sup.tick()

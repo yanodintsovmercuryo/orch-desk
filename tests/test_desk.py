@@ -348,3 +348,29 @@ class SupervisorTest(unittest.TestCase):
                 for obj, name, fn in originals:
                     setattr(obj, name, fn)
                 (supervisor.ROOT, supervisor.CONFIG, supervisor.MEMORY, supervisor.EVENTS, asks.ROOT, asks.DIR) = saved
+
+
+class UsageTest(unittest.TestCase):
+    def test_scan_buckets_calls_per_hour_and_keeps_last_context(self):
+        import json as _json, tempfile
+        from desk import usage
+        lines = [
+            {"type": "user", "cwd": "/tmp/repo", "timestamp": "2026-09-28T10:00:00Z", "message": {"content": "You are the stream session MER-1, launched"}},
+            {"type": "assistant", "timestamp": "2026-09-28T10:05:00Z", "message": {"model": "claude-opus-5-5", "usage": {"input_tokens": 10, "output_tokens": 100, "cache_creation_input_tokens": 1000, "cache_read_input_tokens": 50000}}},
+            {"type": "assistant", "timestamp": "2026-09-28T11:05:00Z", "message": {"model": "claude-opus-5-5", "usage": {"input_tokens": 20, "output_tokens": 200, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 80000}}},
+        ]
+        with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as f:
+            f.write("\n".join(_json.dumps(l) for l in lines) + "\n" + '{"type":"assistant","timestamp":"2026-09-28T12:00:00Z","message":{"usage":{"output_tokens":5')
+            path = f.name
+        rec = {}
+        usage._scan(path, rec)
+        self.assertEqual(rec["cwd"], "/tmp/repo")
+        self.assertTrue(rec["first"].startswith("You are the stream session MER-1"))
+        self.assertEqual(rec["hours"]["2026-09-28T10"], [100, 10, 1000, 50000, 1])
+        self.assertEqual(rec["hours"]["2026-09-28T11"], [200, 20, 0, 80000, 1])
+        self.assertEqual(rec["last_ctx"], 80020)
+        self.assertEqual(rec["model"], "claude-opus-5-5")
+        # The torn last line waits for the next read: the offset stops before it.
+        with open(path, "rb") as fh:
+            self.assertEqual(fh.read()[rec["offset"]:][:8], b'{"type":')
+        self.assertAlmostEqual(usage.weight([100, 10, 1000, 50000]), 100 * 5 + 10 + 1250 + 5000)

@@ -163,6 +163,13 @@ details.epic-fold[open] > summary.epic { margin-bottom: 0; }
 .ms { font-size: var(--text-xs); color: var(--text-muted); border-top: 2px solid var(--border-strong); padding-top: 6px; }
 .ms.done { color: var(--text-secondary); border-top-color: var(--text-primary); }
 .ms b { display: block; font-weight: 500; color: inherit; }
+.usage { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+.usage td, .usage th { padding: 5px 8px; border-top: 1px solid var(--border); text-align: right; white-space: nowrap; }
+.usage th { color: var(--text-muted); font-weight: 500; }
+.usage td:first-child, .usage th:first-child { text-align: left; white-space: normal; }
+.usage tr:first-child td, .usage tr:first-child th { border-top: 0; }
+.usage .bar { display: inline-block; height: 6px; background: var(--accent, #6b8afd); border-radius: 3px; vertical-align: middle; margin-right: 6px; }
+.ctx-bad { color: var(--bad, #d9534f); font-weight: 600; }
 .log { list-style: none; margin: 0; padding: 0; font-size: var(--text-sm); }
 .log li { display: grid; grid-template-columns: 120px 1fr; gap: var(--space-3); padding: 6px 0; border-top: 1px solid var(--border); color: var(--text-secondary); }
 .log li:first-child { border-top: 0; }
@@ -1097,6 +1104,23 @@ function dropId(text, id) {
 
 const EVENT_KIND = {nudge: "сигнал оркестратору", notify: "уведомление тебе", error: "ошибка"};
 
+
+const kTok = n => n >= 1e9 ? (n / 1e9).toFixed(1) + " млрд" : n >= 1e6 ? (n / 1e6).toFixed(1) + " млн" : n >= 1e3 ? Math.round(n / 1e3) + " тыс" : String(n || 0);
+
+function usagePanel(u) {
+  if (!u) return "";
+  const groups = (u.groups || []).map(g => `<tr><td><span class="bar" style="width:${Math.max(2, g.share * 1.4)}px"></span>${esc(g.group)} <span class="muted small">· ${g.sessions} сес.</span></td>
+      <td>${kTok(g.out)}</td><td>${kTok(g.cr)}</td><td>${g.calls}</td><td><b>${g.share}%</b></td></tr>`).join("");
+  const top = (u.top || []).map(r => `<tr><td><span class="id">${esc((r.stream || r.group || "").slice(0, 28))}</span> <span class="muted small">${esc(r.id.slice(0, 8))} · ${esc((r.model || "").replace("claude-", ""))}</span></td>
+      <td>${kTok(r.out)}</td><td>${kTok(r.cr)}</td><td>${r.calls}</td><td class="${r.ctx > 250000 ? "ctx-bad" : ""}">${r.ctx ? kTok(r.ctx) : "—"}</td></tr>`).join("");
+  const orch = (u.orchestrators || []).map(o => `<span class="${o.ctx > 250000 ? "ctx-bad" : ""}">${esc(o.name)}: контекст ${kTok(o.ctx)} на вызов (медиана ${kTok(o.ctx_median)}), ${esc((o.model || "").replace("claude-", ""))}</span>`).join(" · ");
+  const head = `${icon("activity")} расход за ${u.hours} ч · ${orch || "оркестратор не найден"}${u.scanning ? " · <span class=\"muted small\">читаю транскрипты…</span>" : ""}`;
+  const body = `<table class="usage"><tr><th>кто</th><th>output</th><th>cache read</th><th>вызовов</th><th>доля*</th></tr>${groups}</table>
+    <div class="muted small" style="margin:8px 0">* грубый вес в лимитах: output×5 + input + cache write×1.25 + cache read×0.1; точных весов плана нет</div>
+    <table class="usage"><tr><th>сессия</th><th>output</th><th>cache read</th><th>вызовов</th><th>контекст</th></tr>${top}</table>`;
+  return `<section class="panel"><div class="panel-body">${det("usage", head, body)}</div></section>`;
+}
+
 function supervisorPanel(sv) {
   if (!sv) return "";
   const c = sv.config;
@@ -1188,6 +1212,7 @@ function homeView() {
     <section class="panel"><table class="tasks"><tbody>${waitingRows + general + rows || `<tr><td class="empty">Нет задач.</td></tr>`}</tbody></table></section>
     <section class="panel">${orch}</section>
     ${supervisorPanel(d.supervisor)}
+    ${usagePanel(d.usage)}
     ${replies ? `<section class="panel"><div class="panel-body">${det("replies", `${icon("send")} отправленные ответы · ${d.replies.length}`, `<ul class="log">${replies}</ul>`)}</div></section>` : ""}`;
 }
 
