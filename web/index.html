@@ -1173,10 +1173,12 @@ function liveTasks(list, withVia) {
 
 function epicsPanel(list) {
   if (!list || !list.length) return `<section class="panel"><div class="epics"><div class="foot">${icon("hourglass")} эпики читаются из Linear…</div></div></section>`;
-  const rows = list.map(e => {
+  // A finished epic is history, not a task list.
+  const finished = e => !e.loading && e.total > 0 && e.done >= e.total && !(e.active || []).length;
+  const rows = list.filter(e => !finished(e)).map(e => {
     if (!e.staged) return epicRow(e);
     const k = "epic:" + e.id;
-    const stages = (e.stages || []).map(st => epicRow(st)).join("");
+    const stages = (e.stages || []).filter(st => !finished(st)).map(st => epicRow(st)).join("");
     return `<details class="epic-fold" data-key="${esc(k)}" ${openDetails.has(k) ? "open" : ""}>${epicRow(e, true)}<div class="epic-stages">${stages}</div></details>`;
   }).join("");
   return `<section class="panel"><div class="epics">${rows}</div></section>`;
