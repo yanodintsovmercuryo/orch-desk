@@ -487,3 +487,11 @@ class LinksRateLimitTest(unittest.TestCase):
             raise RuntimeError("connection reset")
         l._refresh(self.key, broken, 300)
         self.assertFalse(l.paused())
+
+
+class EpicTrackersTest(unittest.TestCase):
+    def test_free_text_in_a_header_is_not_a_card_id(self):
+        from desk import epics
+        s = {"id": "MER-3690-S4", "header": {"tracker": "MER-3690-S4 (notifier step) MER-3690, MER-3711"}}
+        self.assertEqual(epics._trackers(s), ["MER-3690", "MER-3711"])
+        self.assertEqual(epics._trackers({"id": "MER-4170", "header": {}}), ["MER-4170"])

@@ -177,13 +177,22 @@ def configured():
         return []
 
 
+TRACKER_RE = re.compile(r"[A-Z][A-Z0-9]+-\d+")
+
+
+def _trackers(stream):
+    """Card ids a stream works under; a header's free text ("MER-3690-S4", "(notifier") is not one."""
+    raw = (stream.get("header", {}).get("tracker") or stream.get("id", "")).replace(",", " ").split()
+    return [t for t in raw if TRACKER_RE.fullmatch(t)]
+
+
 def _running(streams):
     """The tracker cards of the streams that run right now, each with its chain of parents."""
     out = {}
     for s in streams:
         if s.get("closed") or s.get("prepared"):
             continue
-        for t in (s.get("header", {}).get("tracker") or s.get("id", "")).replace(",", " ").split():
+        for t in _trackers(s):
             chain = _ancestry(t)
             if chain:
                 out[t] = {"chain": chain, "title": (card(t) or {}).get("title", "")}
@@ -238,7 +247,7 @@ def summary(streams):
     for e in configured() + list(_recall("known", "epics") or []):
         epics.setdefault(e, set())
     for s in streams:
-        for t in (s.get("header", {}).get("tracker") or s.get("id", "")).replace(",", " ").split():
+        for t in _trackers(s):
             chain = _ancestry(t)
             if not chain:
                 continue
