@@ -398,3 +398,92 @@ class EpicCountTest(unittest.TestCase):
         since = datetime.now().astimezone()
         got = epics._count(self.ROWS, since, {"MER-1", "MER-5"})
         self.assertEqual(got["started"], 1)  # only MER-2 (In Progress in Linear)
+
+
+class EpicCacheTest(unittest.TestCase):
+    def setUp(self):
+        from desk import epics
+        self.epics = epics
+        self.key = ("test", "epic-cache")
+        epics._cache.pop(self.key, None)
+        epics._pending.discard(self.key)
+
+    def tearDown(self):
+        self.epics._cache.pop(self.key, None)
+        self.epics._pending.discard(self.key)
+
+    def test_a_failed_refresh_keeps_the_last_good_answer_and_retries_soon(self):
+        import time
+        e = self.epics
+        e._cache[self.key] = (time.time() - 10000, {"rows": [1]})
+
+        def boom():
+            raise RuntimeError("linear timed out")
+        e._refresh(self.key, boom, 300)
+        ts, value = e._cache[self.key]
+        self.assertEqual(value, {"rows": [1]})
+        self.assertLess(time.time() - ts, 300)          # not stale enough to refetch every request...
+        self.assertGreater(time.time() - ts, 300 - 60)  # ...but due again within the retry window
+
+    def test_a_failed_first_read_is_recorded_as_an_error(self):
+        e = self.epics
+
+        def boom():
+            raise RuntimeError("no network")
+        e._refresh(self.key, boom, 300)
+        self.assertIn("error", e._cache[self.key][1])
+
+    def test_a_good_refresh_replaces_the_answer(self):
+        import time
+        e = self.epics
+        e._cache[self.key] = (time.time() - 10000, {"rows": [1]})
+        e._refresh(self.key, lambda: {"rows": [1, 2]}, 300)
+        self.assertEqual(e._cache[self.key][1], {"rows": [1, 2]})
+
+    def test_a_card_that_errored_makes_the_chain_unknown_not_short(self):
+        import time
+        e = self.epics
+        e._cache[("card", "T-1")] = (time.time(), {"id": "T-1", "parent": "T-2"})
+        e._cache[("card", "T-2")] = (time.time(), {"error": "timeout"})
+        try:
+            self.assertIsNone(e._ancestry("T-1"))
+        finally:
+            e._cache.pop(("card", "T-1"), None)
+            e._cache.pop(("card", "T-2"), None)
+
+
+class LinksRateLimitTest(unittest.TestCase):
+    def setUp(self):
+        from desk import links
+        self.links = links
+        self.key = ("test", "links-cache")
+        links._cache.pop(self.key, None)
+        links._pending.discard(self.key)
+        links._pause["until"] = 0.0
+
+    def tearDown(self):
+        self.links._cache.pop(self.key, None)
+        self.links._pending.discard(self.key)
+        self.links._pause["until"] = 0.0
+
+    def test_a_rate_limit_pauses_linear_and_serves_the_stale_answer(self):
+        import time
+        l = self.links
+        l._cache[self.key] = (time.time() - 10000, {"title": "kept"})
+
+        def limited():
+            raise RuntimeError("Rate limit exceeded. Only 2500 requests are allowed per 1 hour.")
+        l._refresh(self.key, limited, 300)
+        self.assertTrue(l.paused())
+        self.assertEqual(l._cache[self.key][1], {"title": "kept"})
+        # while paused, a Linear read starts no fetch at all and still answers with what it has
+        self.assertEqual(l.cached(self.key, limited, needs_linear=True), {"title": "kept"})
+        self.assertNotIn(self.key, l._pending)
+
+    def test_other_failures_do_not_pause(self):
+        l = self.links
+
+        def broken():
+            raise RuntimeError("connection reset")
+        l._refresh(self.key, broken, 300)
+        self.assertFalse(l.paused())

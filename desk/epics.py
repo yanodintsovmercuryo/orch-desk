@@ -14,8 +14,8 @@ from datetime import datetime
 
 from . import asks, links
 
-PARENT_TTL = 3600  # a card's parent rarely changes
-CHILDREN_TTL = 300
+PARENT_TTL = 21600  # a card's parent rarely changes
+CHILDREN_TTL = 900
 DEAD_STATES = ("Canceled", "Duplicate")
 STARTED_STATES = ("In Progress", "In Review")
 _cache = {}
@@ -40,7 +40,7 @@ def _save_cache():
         os.makedirs(asks.ROOT, exist_ok=True)
         tmp = CACHE_FILE + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump({f"{k[0]}:{k[1]}": v for k, v in _cache.items() if not (v[1] or {}).get("error")}, f, ensure_ascii=False)
+            json.dump({f"{k[0]}:{k[1]}": v for k, v in _cache.items() if not (isinstance(v[1], dict) and v[1].get("error"))}, f, ensure_ascii=False)
         os.replace(tmp, CACHE_FILE)
     except OSError:
         pass
@@ -50,30 +50,42 @@ _load_cache()
 
 
 def _run(args):
-    res = subprocess.run(args, capture_output=True, text=True, timeout=30)
+    res = subprocess.run(args, capture_output=True, text=True, timeout=90)
     if res.returncode != 0:
         raise RuntimeError((res.stderr or res.stdout).strip()[:300])
     return json.loads(res.stdout or "{}")
+
+
+RETRY_AFTER = 30  # a failed refresh is tried again this many seconds later, not after a full ttl
 
 
 def _cached(key, ttl, fn):
     with _lock:
         hit = _cache.get(key)
         fresh = hit and time.time() - hit[0] < ttl
-        if not fresh and key not in _pending:
+        if not fresh and key not in _pending and not links.paused():
             _pending.add(key)
-            threading.Thread(target=_refresh, args=(key, fn), daemon=True).start()
+            threading.Thread(target=_refresh, args=(key, fn, ttl), daemon=True).start()
         return hit[1] if hit else None
 
 
-def _refresh(key, fn):
+def _refresh(key, fn, ttl=CHILDREN_TTL):
+    """Fetch first, replace after: the answer being served is dropped only when a better one is in hand."""
     with links._slots:
         try:
-            value = fn()
+            if links.paused():  # queued before the limit hit: do not add to it
+                raise RuntimeError("linear paused")
+            value, failed = fn(), False
         except Exception as e:
-            value = {"error": str(e)[:300]}
+            value, failed = {"error": str(e)[:300]}, True
+            links.note_failure(str(e))
     with _lock:
-        _cache[key] = (time.time(), value)
+        prev = _cache.get(key)
+        if failed and prev and not (prev[1] or {}).get("error"):
+            # Linear was slow or refused: the last good answer stays on the page and is retried soon.
+            _cache[key] = (time.time() - ttl + RETRY_AFTER, prev[1])
+        else:
+            _cache[key] = (time.time(), value)
         _pending.discard(key)
         if not _pending:
             _save_cache()
@@ -141,7 +153,9 @@ def _ancestry(tracker):
         c = card(key)
         if c is None:
             return None  # not fetched yet: no guess about the top
-        if c.get("error") or not c.get("parent"):
+        if c.get("error"):
+            return None  # unknown is not "no parent": a guess here would put a stage at the top
+        if not c.get("parent"):
             return chain
         chain.append(c["parent"])
         key = c["parent"]
@@ -182,29 +196,67 @@ def _chips(tasks, via=False):
             for t, v in sorted(tasks.items())]
 
 
+_saved = {"at": 0.0}
+
+
+def _remember(kind, key, value):
+    with _lock:
+        _cache[(kind, key)] = (time.time(), value)
+        if time.time() - _saved["at"] > 60:  # the last full rows survive a restart too
+            _saved["at"] = time.time()
+            _save_cache()
+
+
+def _recall(kind, key):
+    with _lock:
+        hit = _cache.get((kind, key))
+    return hit[1] if hit and not (isinstance(hit[1], dict) and hit[1].get("error")) else None
+
+
+def _with_running(item, mine):
+    """The numbers may be old; what runs right now is always current."""
+    item = {**item, "active": _chips(mine, via=True)}
+    if item.get("stages"):
+        stages = []
+        for st in item["stages"]:
+            if st["id"]:
+                here = {t: v for t, v in mine.items() if len(v["chain"]) > 1 and v["chain"][-2] == st["id"]}
+            else:
+                here = {t: v for t, v in mine.items() if len(v["chain"]) == 1}
+            stages.append({**st, "active": _chips(here)})
+        item["stages"] = stages
+    return item
+
+
 def summary(streams):
-    """Epics found from the streams' tracker cards (or config.json `epics`), each with counts and stages."""
+    """Epics found from the streams' tracker cards (or config.json `epics`), each with counts and stages.
+
+    A read that is not finished never blanks a row: the last complete answer is shown until the new one lands."""
     since = datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
     running = _running(streams)
-    epics, stages = {}, {}
-    for e in configured():
-        epics[e] = set()
+    epics = {}
+    for e in configured() + list(_recall("known", "epics") or []):
+        epics.setdefault(e, set())
     for s in streams:
         for t in (s.get("header", {}).get("tracker") or s.get("id", "")).replace(",", " ").split():
             chain = _ancestry(t)
             if not chain:
                 continue
-            top = chain[-1]
-            epics.setdefault(top, set()).update(chain[:-1])
+            epics.setdefault(chain[-1], set()).update(chain[:-1])
+    _remember("known", "epics", sorted(epics))
     out = []
-    for e, seen_stages in epics.items():
-        c, kids, rows = card(e), children(e), subtree(e)
-        if rows is None or not c:
-            out.append({"id": e, "title": (c or {}).get("title", ""), "url": (c or {}).get("url", ""), "loading": True})
-            continue
+    for e in epics:
         mine = {t: v for t, v in running.items() if v["chain"][-1] == e}
+        c, kids, rows = card(e), children(e), subtree(e)
+        if rows is None or not c or c.get("error") or not kids or kids.get("error"):
+            last = _recall("item", e)
+            out.append(_with_running(last, mine) if last else
+                       {"id": e, "title": (c or {}).get("title", ""), "url": (c or {}).get("url", ""), "loading": True})
+            continue
         item = {"id": e, "title": c.get("title", ""), "url": c.get("url", ""), **_count(rows, since, set(mine)),
                 "active": _chips(mine, via=True)}
+        last = _recall("item", e) or {}
+        last_stage = {st["id"]: st for st in last.get("stages", [])}
         # Children with children of their own are sub-epics; the leaves gather in one group.
         subs = [r for r in kids["rows"] if r["kids"] and r["state"] not in DEAD_STATES]
         if subs:
@@ -213,7 +265,12 @@ def summary(streams):
                 below = subtree(r["id"])
                 in_stage = {t: v for t, v in mine.items() if len(v["chain"]) > 1 and v["chain"][-2] == r["id"]}
                 st = {"id": r["id"], "title": r["title"], "url": r["url"], "active": _chips(in_stage)}
-                stage_list.append({**st, "loading": True} if below is None else {**st, **_count(below, since, set(in_stage))})
+                if below is not None:
+                    stage_list.append({**st, **_count(below, since, set(in_stage))})
+                elif r["id"] in last_stage:
+                    stage_list.append({**last_stage[r["id"]], **st})  # numbers of the last read, chips of this one
+                else:
+                    stage_list.append({**st, "loading": True})
             stage_list.sort(key=lambda st: (_stage_no(st["title"]), st["id"]))
             leaves = [r for r in kids["rows"] if not r["kids"]]
             if leaves:
@@ -221,6 +278,8 @@ def summary(streams):
                 stage_list.append({"id": "", "title": "Отдельные задачи", "url": c.get("url", ""),
                                    **_count(leaves, since, set(direct)), "active": _chips(direct)})
             item.update(staged=True, stages=stage_list)
+        if not any(st.get("loading") for st in item.get("stages", [])):
+            _remember("item", e, item)
         out.append(item)
     out.sort(key=lambda x: x["id"])
     return out

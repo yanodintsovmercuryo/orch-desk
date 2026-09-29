@@ -8,7 +8,11 @@ import threading
 import time
 
 TTL = 300
+LINEAR_TTL = 1200      # a card's title and description rarely change; Linear's budget is shared by every agent
+RETRY_AFTER = 30       # a failed refresh is tried again this many seconds later
+RATE_PAUSE = 600       # once Linear says "rate limit", the desk stops asking for this long
 LINEAR_WORKSPACE = "mercuryo"
+_pause = {"until": 0.0}
 _cache = {}
 _pending = set()
 _lock = threading.Lock()
@@ -48,27 +52,45 @@ def _run(args, timeout=15):
     return res.stdout
 
 
-def _refresh(key, fn):
+def paused():
+    return time.time() < _pause["until"]
+
+
+def note_failure(message):
+    """Linear allows 2500 requests an hour to the whole account; past it every retry only prolongs the block."""
+    if "rate limit" in (message or "").lower():
+        _pause["until"] = time.time() + RATE_PAUSE
+
+
+def _refresh(key, fn, ttl=TTL, needs_linear=False):
+    """Fetch first, replace after: a good answer is never overwritten by a failure."""
     with _slots:
         try:
-            value = fn()
+            if needs_linear and paused():  # queued before the limit hit: do not add to it
+                raise RuntimeError("linear paused")
+            value, failed = fn(), False
         except Exception as e:  # a CLI failure degrades to a bare link, never breaks the page
-            value = {"error": str(e)[:300]}
+            value, failed = {"error": str(e)[:300]}, True
+            note_failure(str(e))
     with _lock:
-        _cache[key] = (time.time(), value)
+        prev = _cache.get(key)
+        if failed and prev and not (prev[1] or {}).get("error"):
+            _cache[key] = (time.time() - ttl + RETRY_AFTER, prev[1])
+        else:
+            _cache[key] = (time.time(), value)
         _pending.discard(key)
         if not _pending:
             _save_cache()
 
 
-def cached(key, fn):
+def cached(key, fn, ttl=TTL, needs_linear=False):
     """Stale-while-revalidate: never waits on a CLI; a miss returns {} until the fetch lands."""
     with _lock:
         hit = _cache.get(key)
-        fresh = hit and time.time() - hit[0] < TTL
-        if not fresh and key not in _pending:
+        fresh = hit and time.time() - hit[0] < ttl
+        if not fresh and key not in _pending and not (needs_linear and paused()):
             _pending.add(key)
-            threading.Thread(target=_refresh, args=(key, fn), daemon=True).start()
+            threading.Thread(target=_refresh, args=(key, fn, ttl, needs_linear), daemon=True).start()
         return dict(hit[1]) if hit else {}
 
 
@@ -79,7 +101,7 @@ def linear(key):
         return {"url": out.get("url"), "title": out.get("title"), "state": (out.get("state") or {}).get("name"),
                 "description": out.get("description") or ""}
 
-    info = cached(("linear", key), fetch)
+    info = cached(("linear", key), fetch, ttl=LINEAR_TTL, needs_linear=True)
     info.setdefault("url", f"https://linear.app/{LINEAR_WORKSPACE}/issue/{key}")
     return info
 
