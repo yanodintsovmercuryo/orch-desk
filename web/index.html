@@ -87,8 +87,9 @@ table.tasks { width: 100%; border-collapse: collapse; font-size: var(--text-sm);
 .stage { display: grid; gap: 6px; min-width: 140px; }
 .bar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
 .bar i { height: 4px; border-radius: 2px; background: var(--border-strong); }
-.bar i.done { background: var(--text-primary); }
-.bar i.now { background: var(--text-muted); }
+.bar i.done { background: #6a6a6a; }
+.bar i.now { background: var(--text-primary); animation: stage-pulse 2s ease-in-out infinite; }
+@keyframes stage-pulse { 50% { opacity: .55; } }
 .stage-label { color: var(--text-secondary); font-size: var(--text-xs); }
 .epics { display: grid; gap: var(--space-3); padding: var(--space-4) var(--space-5); }
 .epic { display: grid; grid-template-columns: minmax(0, 1fr) 220px 170px; gap: var(--space-4); align-items: center; }
