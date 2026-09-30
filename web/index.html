@@ -1173,8 +1173,8 @@ function liveTasks(list, withVia) {
 
 function epicsPanel(list) {
   if (!list || !list.length) return `<section class="panel"><div class="epics"><div class="foot">${icon("hourglass")} эпики читаются из Linear…</div></div></section>`;
-  // A finished epic is history, not a task list.
-  const finished = e => !e.loading && e.total > 0 && e.done >= e.total && !(e.active || []).length;
+  // A finished or empty (0/0) epic is history, not a task list.
+  const finished = e => !e.loading && e.done >= e.total && !(e.active || []).length;
   const rows = list.filter(e => !finished(e)).map(e => {
     if (!e.staged) return epicRow(e);
     const k = "epic:" + e.id;
