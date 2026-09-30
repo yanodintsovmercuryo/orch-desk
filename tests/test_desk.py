@@ -385,6 +385,15 @@ class EpicCountTest(unittest.TestCase):
         {"id": "MER-5", "state": "Canceled", "completed": ""},
     ]
 
+    def test_epics_are_not_counted_as_tasks(self):
+        from datetime import datetime
+        from desk import epics
+        rows = [{"id": "E", "state": "Done", "kids": True, "completed": None},
+                {"id": "T1", "state": "Done", "kids": False, "completed": None},
+                {"id": "T2", "state": "Backlog", "kids": False, "completed": None}]
+        c = epics._count(rows, datetime.now().astimezone())
+        self.assertEqual((c["total"], c["done"]), (2, 1))
+
     def test_started_is_linear_progress_plus_open_streams_without_double_counting(self):
         from datetime import datetime
         from desk import epics
