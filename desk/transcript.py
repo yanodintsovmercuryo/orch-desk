@@ -143,7 +143,8 @@ def owner_items(status_line):
         m = OWNER_RE.match(rest)
         if not m:
             continue
-        items += [i.strip() for i in rest[m.end():].split(";") if i.strip()]
+        # The closing clock ("; 14:08") is part of the line's format, not an ask.
+        items += [i.strip() for i in rest[m.end():].split(";") if i.strip() and not re.fullmatch(r"\d{1,2}:\d{2}", i.strip())]
     return items
 
 
