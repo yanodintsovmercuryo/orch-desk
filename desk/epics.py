@@ -131,13 +131,12 @@ def subtree(key):
 def _count(rows, since, active=frozenset()):
     """Every sub-issue in the tree, as Linear counts them, minus the canceled and duplicate ones.
 
-    `started` is what runs now: cards Linear has In Progress/In Review, plus cards whose stream is open
-    on the desk even when nobody moved the card (the orchestrator does not always)."""
+    `started` is what runs now: cards whose stream is open on the desk."""
     # A card with children is an epic, not a task: only leaves are counted.
     live = [r for r in rows if r["state"] not in DEAD_STATES and not r.get("kids")]
     done = [r for r in live if r["state"] == "Done"]
-    working = {r["id"] for r in live if r["state"] in STARTED_STATES}
-    working |= {r["id"] for r in live if r["id"] in active and r["state"] != "Done"}
+    # Only a card with an open stream runs: Linear keeps partly fixed cards In Progress with nobody on them.
+    working = {r["id"] for r in live if r["id"] in active and r["state"] != "Done"}
     today = [r for r in done if r["completed"] and _local(r["completed"]) >= since]
     return {"total": len(live), "done": len(done), "dead": sum(1 for r in rows if r["state"] in DEAD_STATES and not r.get("kids")),
             "started": len(working), "today": len(today)}

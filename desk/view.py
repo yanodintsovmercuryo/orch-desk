@@ -61,6 +61,10 @@ def build(root=None):
         # Until GitHub answers, any #N the journal mentions may identify the stream in an ask.
         match_prs = own_prs if pr_no else journal_prs | mentioned
         idx, moved = state.progress(st.events)
+        # An open, non-draft PR means published even when the journal stayed silent about it.
+        pr = lk["pr"]
+        if 0 <= idx < state.ORDERED.index("pre-merge") and pr.get("state") == "OPEN" and not pr.get("isDraft") and not pr.get("draft"):
+            idx = state.ORDERED.index("pre-merge")
         asks = [i for i in items if _names_stream(i, st.id, match_prs)]
         ask = transcript.ask_thread(
             messages, lambda i: _names_stream(i, st.id, match_prs),

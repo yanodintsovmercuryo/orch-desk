@@ -394,19 +394,20 @@ class EpicCountTest(unittest.TestCase):
         c = epics._count(rows, datetime.now().astimezone())
         self.assertEqual((c["total"], c["done"]), (2, 1))
 
-    def test_started_is_linear_progress_plus_open_streams_without_double_counting(self):
+    def test_started_is_the_cards_with_an_open_stream_only(self):
         from datetime import datetime
         from desk import epics
         since = datetime.now().astimezone()
         got = epics._count(self.ROWS, since, {"MER-2", "MER-3"})
-        self.assertEqual((got["total"], got["done"], got["started"], got["dead"]), (4, 1, 2, 1))
+        self.assertEqual((got["total"], got["done"], got["started"], got["dead"]), (4, 1, 2, 1))  # MER-2 In Progress without a stream does not count
+        self.assertEqual(epics._count(self.ROWS, since, set())["started"], 0)
 
     def test_a_done_or_canceled_card_with_an_open_stream_is_not_working(self):
         from datetime import datetime
         from desk import epics
         since = datetime.now().astimezone()
         got = epics._count(self.ROWS, since, {"MER-1", "MER-5"})
-        self.assertEqual(got["started"], 1)  # only MER-2 (In Progress in Linear)
+        self.assertEqual(got["started"], 0)
 
 
 class EpicCacheTest(unittest.TestCase):
