@@ -377,6 +377,7 @@ pre.code .no { flex: none; width: 56px; padding-right: 16px; text-align: right; 
 pre.code .tx { white-space: pre; color: var(--text-primary); }
 .quote.doc { max-width: 900px; margin: 0 auto; font-size: var(--text-base); }
 
+.mini { padding: 1px 8px; font-size: var(--text-xs); margin-left: 8px; }
 .seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: var(--r); overflow: hidden; }
 .seg button { border: 0; border-radius: 0; padding: 4px 10px; font-size: var(--text-xs); color: var(--text-secondary); }
 .seg button.on { background: var(--text-primary); color: var(--text-inverse); }
@@ -666,7 +667,7 @@ function askPanel(key, items, ask, session, stream, rs) {
   const track = rs && rs.kind !== "resolved" ? tracker(rs) : "";
   return `<section class="panel ask-panel"><div class="panel-head"><h2>Вопрос к тебе</h2></div>
     <div class="panel-body stack-lg">${track}
-      <div class="question">${items.map(i => `<div>${withTitles(inline(i))}</div>`).join("")}</div>
+      <div class="question">${items.map(i => `<div>${withTitles(inline(i))}${items.length > 1 ? ` <button type="button" class="mini" data-quick-ask="${esc(i)}" title="Ответить «Принимаю» только на этот вопрос">Принимаю</button>` : ""}</div>`).join("")}</div>
       <div>${origin}</div>${updates}
       <div><div class="section-label">Ответ</div>${replyForm(key, session, stream, items)}</div>
     </div></section>`;
@@ -1628,6 +1629,8 @@ document.addEventListener("click", async e => {
   if (e.target.closest("a")) return;
   const q = e.target.closest("[data-quick]");
   if (q) { sendReply(q.closest("form.reply"), q.dataset.quick); return; }
+  const qa = e.target.closest("[data-quick-ask]");
+  if (qa) { sendReply(qa.closest(".ask-panel").querySelector("form.reply"), "Принимаю", qa.dataset.quickAsk); return; }
   const sv = e.target.closest("[data-sv], [data-sv-wip]");
   if (sv) {
     const c = (last.supervisor || {}).config || {};
@@ -1754,7 +1757,7 @@ document.addEventListener("submit", async e => {
 });
 
 // quick: a canned reply sent on its own (still confirmed); null sends the typed text and images.
-async function sendReply(f, quick) {
+async function sendReply(f, quick, only) {
   const ta = f.querySelector("textarea"), rc = f.querySelector(".receipt"), btn = f.querySelector("button[type=submit]");
   const note = (cls, text) => { rc.className = "receipt " + cls; rc.textContent = text; receipts.set(f.dataset.key, {cls, text}); };
   const text = quick ?? ta.value.trim();
@@ -1762,7 +1765,7 @@ async function sendReply(f, quick) {
   if (list.some(a => !a.path && !a.error)) { note("err", "Картинка ещё загружается."); return; }
   if (list.some(a => a.error)) { note("err", "Убери картинки с ошибкой."); return; }
   const images = list.map(a => a.path);
-  const asks = JSON.parse(f.dataset.asks || "[]");
+  const asks = only ? [only] : JSON.parse(f.dataset.asks || "[]");
   if (!text && !images.length) { note("err", "Пустой ответ."); return; }
   const preview = (asks.length ? `<p class="muted">На вопрос: ${asks.map(a => `«${inline(a)}»`).join("; ")}</p>` : "") + (text ? `<div class="quote">${esc(text).replace(/\n/g, "<br>")}</div>` : "") +
     (list.length ? `<div class="thumbs">${list.map(a => `<span class="thumb"><img src="${esc(a.url)}" alt=""></span>`).join("")}</div>` : "");
