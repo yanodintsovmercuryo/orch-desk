@@ -624,7 +624,7 @@ function replyForm(key, sessionId, stream, asks, kind = "reply") {
     <div class="thumbs">${attachList(key)}</div>
     <div class="row-actions">
       <button type="submit" class="primary">Отправить</button>
-      ${kind === "note" ? "" : `<button type="button" data-quick="Принимаю">Принимаю</button>`}
+      ${kind === "note" || (asks || []).length > 1 ? "" : `<button type="button" data-quick="Принимаю">Принимаю</button>`}
       <label class="attach-btn" title="Прикрепить картинку">${icon("image")}<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden data-attach></label>
       <span class="receipt ${rc.cls || ""}">${esc(rc.text || "")}</span>
     </div></form>`;

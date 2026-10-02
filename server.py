@@ -183,6 +183,9 @@ class Handler(BaseHTTPRequestHandler):
                 if len(general) != 1:
                     return self._send(400, {"error": "не понятно, на какой вопрос ответ — обнови страницу"})
                 named = general
+            if len(named) > 1 and re.fullmatch(r"\s*(принимаю|да|ок|ok|согласен)[.!]*\s*", text or "", re.I):
+                # One bare word would close every question at once; each gets its own answer.
+                return self._send(400, {"error": "вопросов несколько — ответьте на каждый отдельно (кнопки вариантов в карточке вопроса)"})
             return self._send_record(deliver.send(session_id, stream, text, REPLIES, images, named))
         except ValueError as e:
             return self._send(400, {"error": str(e)})
