@@ -590,7 +590,7 @@ function stage(s) {
     `<i class="${i < idx || (i === idx && s.closed) ? "done" : i === idx ? "now" : ""}" title="${esc(STAGES[c] || c)}"></i>`).join("");
   const label = idx >= 0 ? STAGES[last.checkpoints[idx]] : "—";
   return `<div class="stage"><div class="bar">${bars}</div>
-    <span class="stage-label">${esc(label)} · ${Math.max(idx + 1, 0)}/${last.checkpoints.length}${s.progress.intent_moved ? " · цель сдвинулась" : ""}</span></div>`;
+    <span class="stage-label" ${s.progress.inferred ? 'title="Журнала нет: этап определён по PR"' : ""}>${esc(label)}${s.progress.inferred ? "*" : ""} · ${Math.max(idx + 1, 0)}/${last.checkpoints.length}${s.progress.intent_moved ? " · цель сдвинулась" : ""}</span></div>`;
 }
 
 const APP = {running: "запущен", stopped: "остановлен"};

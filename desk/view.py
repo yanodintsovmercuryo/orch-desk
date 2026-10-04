@@ -61,6 +61,13 @@ def build(root=None):
         # Until GitHub answers, any #N the journal mentions may identify the stream in an ask.
         match_prs = own_prs if pr_no else journal_prs | mentioned
         idx, moved = state.progress(st.events)
+        inferred = False
+        if idx < 0 and not st.events:
+            # No journal at all: read the stage off the PR, and say so on the page.
+            prs = lk["pr"].get("state")
+            idx = state.ORDERED.index("pre-merge") if prs == "MERGED" else state.ORDERED.index("pre-publish") if prs == "OPEN" \
+                else state.ORDERED.index("plan-passed")
+            inferred = True
         # An open, non-draft PR means published even when the journal stayed silent about it.
         pr = lk["pr"]
         if 0 <= idx < state.ORDERED.index("pre-merge") and pr.get("state") == "OPEN" and not pr.get("isDraft") and not pr.get("draft"):
@@ -79,7 +86,7 @@ def build(root=None):
             "prepared": st.prepared,
             "workspace": contour,
             "id": st.id, "orchestrator": orch_name, "header": st.header, "derived": st.derived,
-            "error": st.error, "note": st.note, "progress": {"index": idx, "total": len(state.ORDERED), "intent_moved": moved},
+            "error": st.error, "note": st.note, "progress": {"index": idx, "total": len(state.ORDERED), "intent_moved": moved, "inferred": inferred},
             "milestones": state.milestones(st.events),
             "events": [_event_json(e) for e in st.events],
             "last_ts": st.events[-1].ts if st.events else "",
