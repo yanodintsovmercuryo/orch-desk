@@ -112,6 +112,13 @@ def build(root=None):
                     by_orch.get(o["name"], []), same, lambda t, item=item: transcript.paragraphs_matching(t, item)), item),
             })
 
+    # A record with no journal line is only "taken into work" while a session still runs in its worktree.
+    try:
+        live_cwds = {(a.get("cwd") or "").rstrip("/") for a in deliver.agents()}
+    except Exception:
+        live_cwds = None
+    if live_cwds is not None:
+        rows = [r for r in rows if r["closed"] or r["events"] or (r["header"].get("repository") or "").rstrip("/") in live_cwds]
     open_rows = sorted((r for r in rows if not r["closed"]),
                        key=lambda r: (not (r["owner_asks"] or r["prompt"]), _neg(r["last_ts"])))
     closed_rows = sorted((r for r in rows if r["closed"]), key=lambda r: r["last_ts"], reverse=True)
