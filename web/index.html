@@ -1178,8 +1178,9 @@ function epicsPanel(list) {
   // A finished or empty (0/0) epic is history, not a task list.
   const finished = e => !e.loading && e.done >= e.total && !(e.active || []).length;
   const rows = list.filter(e => !finished(e)).map(e => {
-    if (!e.staged) return epicRow(e);
     const k = "epic:" + e.id;
+    // Every top epic is the same foldable row, so size and arrow match; without sub-epics the fold holds its running cards.
+    if (!e.staged) return `<details class="epic-fold" data-key="${esc(k)}" ${openDetails.has(k) ? "open" : ""}>${epicRow(e, true)}<div class="epic-stages">${liveTasks(e.active, false) || `<span class="muted small">Нет задач в работе</span>`}</div></details>`;
     const stages = (e.stages || []).filter(st => !finished(st)).map(st => epicRow(st)).join("");
     return `<details class="epic-fold" data-key="${esc(k)}" ${openDetails.has(k) ? "open" : ""}>${epicRow(e, true)}<div class="epic-stages">${stages}</div></details>`;
   }).join("");
