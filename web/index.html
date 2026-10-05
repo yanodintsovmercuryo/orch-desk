@@ -117,7 +117,7 @@ details.epic-fold[open] > summary .live-tasks { display: none; }
 @keyframes live-pulse { 50% { opacity: .35; } }
 .epic .num { font-size: var(--text-xs); color: var(--text-secondary); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .epic .num b { color: var(--text-primary); font-weight: 500; }
-.epic-stages { display: grid; gap: 6px; padding: var(--space-2) 0 var(--space-1) 22px; }
+.epic-stages { display: grid; gap: var(--space-3); padding: var(--space-3) 0 0 0; }
 .epic .chev { width: 14px; height: 14px; flex: none; align-self: center; margin-left: -20px; color: var(--text-muted); transition: transform .15s; }
 .epic .chev::before { content: ""; display: block; width: 5px; height: 5px; margin: 4px 0 0 4px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); }
 details.epic-fold[open] > summary .chev::before { transform: rotate(45deg); }
@@ -129,9 +129,8 @@ details.epic-fold[open] > summary.epic { margin-bottom: 0; }
 .tip { position: fixed; z-index: 30; pointer-events: none; background: var(--surface-raised); border: 1px solid var(--border-strong); border-radius: 8px; padding: 8px 12px; font-size: var(--text-xs); color: var(--text-secondary); box-shadow: 0 8px 24px rgba(0,0,0,.35); display: grid; grid-template-columns: auto auto; gap: 2px 14px; opacity: 0; transition: opacity .12s; }
 .tip.on { opacity: 1; }
 .tip b { color: var(--text-primary); font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
-.epic-stages .epic { grid-template-columns: minmax(0, 1fr) 160px 150px; }
-.epic-stages .epic .name a, .epic-stages .epic .name .group { color: var(--text-secondary); }
-.epic .name .group { font-style: italic; }
+.epic-stages .epic .name a, .epic-stages .epic .name .group { color: var(--text-primary); }
+.epic-stages .epic { padding-left: 20px; }
 .epics .foot { font-size: var(--text-xs); color: var(--text-muted); }
 @media (max-width: 720px) { .epic, .epic-stages .epic { grid-template-columns: 1fr; gap: 4px; } .epic .num { text-align: left; } }
 
@@ -1181,7 +1180,9 @@ function epicsPanel(list) {
     const k = "epic:" + e.id;
     // Every top epic is the same foldable row, so size and arrow match; without sub-epics the fold holds its running cards.
     if (!e.staged) return `<details class="epic-fold" data-key="${esc(k)}" ${openDetails.has(k) ? "open" : ""}>${epicRow(e, true)}<div class="epic-stages">${liveTasks(e.active, false) || `<span class="muted small">Нет задач в работе</span>`}</div></details>`;
-    const stages = (e.stages || []).filter(st => !finished(st)).map(st => epicRow(st)).join("");
+    const shown = (e.stages || []).filter(st => !finished(st));
+    if (shown.length === 1 && !shown[0].id) return `<details class="epic-fold" data-key="${esc(k)}" ${openDetails.has(k) ? "open" : ""}>${epicRow(e, true)}<div class="epic-stages">${liveTasks(shown[0].active, false) || liveTasks(e.active, false) || `<span class="muted small">Нет задач в работе</span>`}</div></details>`;
+    const stages = shown.map(st => epicRow(st)).join("");
     return `<details class="epic-fold" data-key="${esc(k)}" ${openDetails.has(k) ? "open" : ""}>${epicRow(e, true)}<div class="epic-stages">${stages}</div></details>`;
   }).join("");
   return `<section class="panel"><div class="epics">${rows}</div></section>`;
@@ -1583,7 +1584,7 @@ document.addEventListener("click", e => {
   if (a) { e.preventDefault(); window.open(a.href, "_blank", "noopener"); }
 });
 // A hover card for an epic row, after a pause; the native title is too terse and too slow to read.
-const EPIC_TIP_DELAY = 2000;
+const EPIC_TIP_DELAY = 500;
 let tipTimer = null, tipEl = null;
 function hideTip() { clearTimeout(tipTimer); tipTimer = null; if (tipEl) { tipEl.remove(); tipEl = null; } }
 document.addEventListener("mouseover", e => {
