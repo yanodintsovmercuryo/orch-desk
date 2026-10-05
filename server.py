@@ -5,6 +5,7 @@ import json
 import mimetypes
 import re
 import os
+import time
 import sys
 import threading
 import traceback
@@ -19,6 +20,48 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 REPLIES = os.environ.get("DESK_REPLIES_LOG", os.path.join(HERE, "replies.jsonl"))
 ALLOWED_HOSTS = {f"{HOST}:{PORT}", f"localhost:{PORT}"}
+
+
+_snap = {"data": None, "at": 0.0, "busy": False}
+_snap_lock = threading.Lock()
+
+
+def _compute_state():
+    data = view.build()
+    data["replies"] = deliver.recent(REPLIES, 20)
+    data["ui_version"] = int(os.path.getmtime(os.path.join(WEB, "index.html")))
+    data["desk_asks"] = asks.visible()
+    data["supervisor"] = {"config": supervisor.config(), "events": supervisor.events(12)}
+    data["epics"] = epics.summary(data["streams"])
+    data["usage"] = usage.summary(view.build_orchestrators(), data["streams"])
+    return data
+
+
+def _state():
+    """One build at a time; a page opened under load gets the last snapshot instead of piling up more builds."""
+    with _snap_lock:
+        fresh = _snap["data"] is not None and time.time() - _snap["at"] < 4
+        if fresh or (_snap["busy"] and _snap["data"] is not None):
+            return _snap["data"]
+        if _snap["busy"]:
+            wait = True
+        else:
+            _snap["busy"], wait = True, False
+    if wait:
+        for _ in range(240):
+            time.sleep(0.5)
+            if _snap["data"] is not None:
+                return _snap["data"]
+    try:
+        data = _compute_state()
+    except Exception:
+        with _snap_lock:
+            _snap["busy"] = False
+        raise
+    with _snap_lock:
+        _snap.update(data=data, at=time.time(), busy=False)
+    return data
+
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -61,14 +104,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._file(os.path.join(WEB, "index.html"))
         if route == "/api/state":
             try:
-                data = view.build()
-                data["replies"] = deliver.recent(REPLIES, 20)
-                data["ui_version"] = int(os.path.getmtime(os.path.join(WEB, "index.html")))
-                data["desk_asks"] = asks.visible()
-                data["supervisor"] = {"config": supervisor.config(), "events": supervisor.events(12)}
-                data["epics"] = epics.summary(data["streams"])
-                data["usage"] = usage.summary(view.build_orchestrators(), data["streams"])
-                return self._send(200, data)
+                return self._send(200, _state())
             except Exception:
                 return self._send(500, {"error": traceback.format_exc(limit=5)})
         if route == "/api/advisor":
