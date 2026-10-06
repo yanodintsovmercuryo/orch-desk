@@ -102,14 +102,26 @@ a.chip:hover { background: var(--surface-3); color: var(--text); }
 .dot.off { background: var(--text-3); }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
 .ico { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.adv-msg { margin-top: 10px; }
-.adv-who { font-size: 12px; color: var(--text-3); margin-bottom: 2px; }
-.adv-msg.you .body { background: var(--surface-2); border-radius: 6px; padding: 8px 10px; }
-.adv-msg.bot .body p { margin: 0 0 8px; }
-.adv-msg .body code { font-family: var(--mono); font-size: 12.5px; background: var(--surface-2); border-radius: 3px; padding: 0 4px; }
-.adv-msg .body pre { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 8px; overflow: auto; font-size: 12.5px; }
-.adv-msg .body ul { margin: 0 0 8px; padding-left: 20px; }
-.adv-tools { margin: 4px 0 0; padding: 0; list-style: none; font-size: 12px; color: var(--text-3); }
+.msg { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; max-width: 92%; }
+.msg.you { align-items: flex-end; margin-left: auto; }
+.msg .bubble { line-height: 1.5; }
+.msg.you .bubble { background: var(--accent-bg); border-radius: 10px 10px 2px 10px; padding: 8px 12px; }
+.msg.bot .bubble p { margin: 0 0 8px; }
+.msg.bot .bubble > :last-child { margin-bottom: 0; }
+.msg .ts { font-size: 11px; color: var(--text-3); }
+.msg .bubble code { font-family: var(--mono); font-size: 12.5px; background: var(--surface-2); border-radius: 3px; padding: 0 4px; }
+.msg .bubble pre { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 8px; overflow: auto; font-size: 12.5px; }
+.msg .bubble ul { margin: 0 0 8px; padding-left: 20px; }
+.adv-tools { margin: 2px 0 0; padding: 0; list-style: none; font-size: 12px; color: var(--text-3); display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.adv-tools li { font-family: var(--mono); }
+.adv-tools .k { margin-right: 6px; color: var(--text-3); opacity: .7; font-family: var(--font); }
+.msg details summary { cursor: pointer; font-size: 12px; color: var(--text-3); }
+.thinking { display: inline-flex; align-items: center; gap: 4px; color: var(--text-3); font-size: 12px; }
+.thinking i { width: 5px; height: 5px; border-radius: 50%; background: var(--text-3); animation: blink 1.2s ease-in-out infinite; }
+.thinking i:nth-child(2) { animation-delay: .2s; }
+.thinking i:nth-child(3) { animation-delay: .4s; }
+.thinking span { margin-left: 6px; }
+@keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
 .adv-input { display: flex; gap: 8px; align-items: flex-end; margin-top: 10px; }
 .adv-input textarea { margin: 0; min-height: 44px; }
 .pre { white-space: pre-wrap; font-family: var(--mono); font-size: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 8px; max-height: 220px; overflow: auto; margin-top: 8px; }
@@ -304,17 +316,28 @@ function standPanel(s) {
     + note + (up ? `<details data-key="${esc(s.id + ":appup")}" ${state.open.has(s.id + ":appup") ? "open" : ""}><summary class="receipt" style="cursor:pointer;margin-top:8px">Вывод app:up${up.running ? " (идёт)" : " · код " + esc(up.exit_code)}</summary><div class="pre">${esc(up.tail || "")}</div></details>` : "") + `</div>`;
 }
 
+function stamp(ts) {
+  const d = new Date(ts);
+  if (isNaN(d)) return "";
+  const hm = d.toLocaleTimeString("ru-RU", {hour: "2-digit", minute: "2-digit", hourCycle: "h23"});
+  return d.toDateString() === new Date().toDateString() ? hm : d.toLocaleDateString("ru-RU", {day: "numeric", month: "short"}) + ", " + hm;
+}
+const toolName = t => { const m = String(t).match(/^(\w+):\s*(.*)$/); const path = m ? m[2] : String(t); return {kind: m ? m[1] : "", short: path.split("/").slice(-2).join("/"), full: String(t)}; };
+function toolList(tools, open) {
+  const items = tools.map(t => { const n = toolName(t); return `<li title="${esc(n.full)}"><span class="k">${esc(n.kind)}</span>${esc(n.short)}</li>`; }).join("");
+  return open ? `<ul class="adv-tools">${items}</ul>` : `<details><summary>читал файлов: ${tools.length}</summary><ul class="adv-tools">${items}</ul></details>`;
+}
 function advisorMessages(id) {
   const st = state.advisor.get(id);
   if (!st) return `<div class="muted">Загружаю беседу…</div>`;
   const msgs = st.messages.map(m => m.role === "user"
-    ? `<div class="adv-msg you"><div class="adv-who">Вы · ${esc(when(m.ts))}${m.model ? " · " + esc(m.model) : ""}</div><div class="body">${md(m.text)}</div></div>`
-    : `<div class="adv-msg bot"><div class="adv-who">Советчик · ${esc(when(m.ts))}</div>${m.error ? `<div class="receipt err">${esc(m.error)}</div>` : ""}<div class="body">${md(m.text)}</div>`
-      + ((m.tools || []).length ? `<details><summary class="receipt" style="cursor:pointer">что читал · ${m.tools.length}</summary><ul class="adv-tools">${m.tools.map(t => `<li>${esc(t)}</li>`).join("")}</ul></details>` : "") + `</div>`).join("");
+    ? `<div class="msg you"><div class="bubble">${md(m.text)}</div><span class="ts">${esc(stamp(m.ts))}</span></div>`
+    : `<div class="msg bot">${m.error ? `<div class="receipt err">${esc(m.error)}</div>` : ""}<div class="bubble">${md(m.text)}</div>`
+      + ((m.tools || []).length ? toolList(m.tools, false) : "") + `<span class="ts">${esc(stamp(m.ts))}</span></div>`).join("");
   const run = st.running;
-  const live = run ? `<div class="adv-msg bot"><div class="adv-who">Советчик думает · ${Math.round(Date.now() / 1000 - run.started)} с</div>`
-    + (run.tools.length ? `<ul class="adv-tools">${run.tools.slice(-4).map(t => `<li>${esc(t)}</li>`).join("")}</ul>` : "")
-    + (run.text.trim() ? `<div class="body">${md(run.text)}</div>` : "") + `</div>` : "";
+  const live = run ? `<div class="msg bot"><div class="thinking"><i></i><i></i><i></i><span>${Math.round(Date.now() / 1000 - run.started)} с</span></div>`
+    + (run.tools.length ? toolList(run.tools.slice(-3), true) : "")
+    + (run.text.trim() ? `<div class="bubble">${md(run.text)}</div>` : "") + `</div>` : "";
   return msgs + live || `<div class="muted">Спросите что угодно про задачу: код, решение, вопрос оркестратора. Советчик только читает worktree.</div>`;
 }
 function advisorPanel(s) {
