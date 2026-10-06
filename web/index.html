@@ -79,8 +79,11 @@ details[open] > summary .chev { transform: rotate(45deg); }
 .chip.st { background: var(--accent-bg); color: var(--accent); }
 a.chip:hover { background: var(--surface-3); color: var(--text); }
 .panel { border: 1px solid var(--border); border-radius: 4px; background: var(--surface); padding: 12px; margin-top: 12px; }
-.panel h3 { margin: 0 0 8px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.panel h3 { margin: 0 0 12px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
 .panel h3 .grow { flex: 1; }
+.panel h3.fold { cursor: pointer; user-select: none; }
+.panel h3 .chev { width: 7px; height: 7px; border-right: 1.5px solid var(--text-3); border-bottom: 1.5px solid var(--text-3); transform: rotate(-45deg); transition: transform .15s; }
+.panel h3 .chev.open { transform: rotate(45deg); }
 .milestones { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin-top: 8px; }
 .milestones div { font-size: 12px; color: var(--text-3); line-height: 1.35; }
 .milestones div.on { color: var(--text-2); }
@@ -103,7 +106,7 @@ a.chip:hover { background: var(--surface-3); color: var(--text); }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
 .ico { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .qa { padding: 16px 0; border-top: 1px solid var(--border); }
-.qa:first-child { border-top: 0; padding-top: 4px; }
+.qa:first-child { border-top: 0; padding-top: 6px; }
 .qline { display: flex; align-items: flex-start; gap: 10px; }
 .qline .ico { margin-top: 3px; color: var(--accent); }
 .qline .qtext { flex: 1; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
@@ -197,7 +200,7 @@ const linearIcon = `<svg class="ico fill" viewBox="0 0 24 24" aria-hidden="true"
 const icon = name => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ""}</svg>`;
 const EPIC_TIP_DELAY = 500;
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
-const state = {advisor: new Map(), adv: new Set(), busy: new Map(), data: null, key: "", details: new Map(), open: new Set(), picks: new Map(), drafts: new Map(), receipts: new Map(), images: new Map()};
+const state = {folded: new Set(), advisor: new Map(), adv: new Set(), busy: new Map(), data: null, key: "", details: new Map(), open: new Set(), picks: new Map(), drafts: new Map(), receipts: new Map(), images: new Map()};
 
 function short(ts) {
   if (!ts) return "—";
@@ -325,8 +328,8 @@ function standPanel(s) {
   const pills = w.loading || w.error ? "" : `<span class="pills">${pill("Console", "layout", web.console)}${pill("Admin", "shield", web.admin)}${pill("API", "code", web.api)}${pill("RabbitScout", "layers", web.rabbitscout)}${pill("DbGate", "database", web.dbgate)}${pill("ObjectStore", "box", web.objectstore)}</span>`;
   const note = w.loading ? `<div class="muted" style="margin-top:8px">Читаю task workspace:info…</div>` : w.error ? `<div class="receipt err" style="margin-top:8px">${esc(w.error)}</div>` : "";
   return `<div class="panel stand"><div class="stand-head"><h3>Стенд</h3><span class="state" title="${esc(label)}${w.checked ? " · проверено " + esc(when(w.checked)) : ""}"><span class="dot ${app === "running" ? "ok" : starting ? "pulse" : "off"}"></span></span>${pills}<span class="grow"></span>`
-    + `<button class="ib" data-ws="up" data-stream="${esc(s.id)}" ${b || starting || app === "running" ? "disabled" : ""} title="Запустить task app:up">${icon("play")}</button>`
-    + `<button class="ib" data-ws="refresh" data-stream="${esc(s.id)}" ${b ? "disabled" : ""} title="Обновить состояние стенда">${icon("refresh")}</button></div>`
+    + `<button class="ib" data-ws="up" data-stream="${esc(s.id)}" ${b || starting || app === "running" ? "disabled" : ""} title="Запустить">${icon("play")}</button>`
+    + `<button class="ib" data-ws="refresh" data-stream="${esc(s.id)}" ${b ? "disabled" : ""} title="Обновить">${icon("refresh")}</button></div>`
     + note + (up ? `<details data-key="${esc(s.id + ":appup")}" ${state.open.has(s.id + ":appup") ? "open" : ""}><summary class="receipt" style="cursor:pointer;margin-top:8px">Вывод app:up${up.running ? " (идёт)" : " · код " + esc(up.exit_code)}</summary><div class="pre">${esc(up.tail || "")}</div></details>` : "") + `</div>`;
 }
 
@@ -356,18 +359,18 @@ function advisorMessages(id) {
         : live ? `<div class="thinking"><i></i><i></i><i></i><span>${Math.round(Date.now() / 1000 - run.started)} с</span></div>` + (run.tools.length ? toolList(run.tools.slice(-3), true) : "") + (run.text.trim() ? md(run.text) : "")
         : `<div class="muted">Ответа нет</div>`) + `</div><span class="ts">${e.a ? esc(stamp(e.a.ts)) : ""}</span></div></div>`;
   }).join("");
-  return html || `<div class="muted">Спросите что угодно про задачу: код, решение, вопрос оркестратора. Советчик только читает worktree.</div>`;
+  return html || `<div class="muted">Задайте вопрос по задаче.</div>`;
 }
 function advisorPanel(s) {
   const st = state.advisor.get(s.id);
   if (!state.adv.has(s.id) && !(st && (st.messages.length || st.running))) return "";
-  const running = !!(st && st.running);
-  return `<div class="panel" id="adv" data-stream="${esc(s.id)}"><h3>${icon("terminal")}Вопрос по задаче<span class="chip">${esc((st && st.model) || "sonnet")}</span><span class="grow"></span>`
-    + `<button class="ib" data-advclose="${esc(s.id)}" title="Закрыть и забыть этот разговор">${icon("x")}</button></h3>`
-    + `<div id="adv-thread">${advisorMessages(s.id)}</div>`
-    + `<div class="composer" style="margin-top:12px"><textarea data-advtext="${esc(s.id)}" placeholder="Уточнить вопрос или спросить ещё" ${running ? "disabled" : ""}>${esc(state.drafts.get("adv:" + s.id) || "")}</textarea>`
-    + `<div class="cbar"><span class="receipt">Советчик только читает worktree · ⌘↵</span><span class="grow"></span>`
-    + `<button class="send" data-advsend="${esc(s.id)}" ${running ? "disabled" : ""}>${icon("send")}${running ? "Отвечает…" : "Спросить"}</button></div></div></div>`;
+  const running = !!(st && st.running), folded = state.folded.has(s.id), n = st ? st.messages.filter(m => m.role === "user").length : 0;
+  return `<div class="panel" id="adv" data-stream="${esc(s.id)}"><h3 class="fold" data-advfold="${esc(s.id)}" title="${folded ? "Развернуть" : "Свернуть"}"><span class="chev ${folded ? "" : "open"}"></span>${icon("terminal")}Вопросы<span class="chip">${n}</span><span class="grow"></span>`
+    + `<button class="ib" data-advclose="${esc(s.id)}" title="Закрыть">${icon("x")}</button></h3>`
+    + (folded ? "" : `<div id="adv-thread">${advisorMessages(s.id)}</div>`
+    + `<div class="composer" style="margin-top:12px"><textarea data-advtext="${esc(s.id)}" placeholder="Ещё вопрос" ${running ? "disabled" : ""}>${esc(state.drafts.get("adv:" + s.id) || "")}</textarea>`
+    + `<div class="cbar"><span class="receipt">Только чтение · ⌘↵</span><span class="grow"></span>`
+    + `<button class="send" data-advsend="${esc(s.id)}" ${running ? "disabled" : ""}>${icon("send")}${running ? "Отвечает…" : "Спросить"}</button></div></div>`) + `</div>`;
 }
 async function loadAdvisor(id) {
   clearTimeout(state.advTimer);
@@ -412,13 +415,13 @@ function taskView(d, id) {
     + (s.questions || []).map(questionCard).join("")
     + standPanel(s)
     + `<div class="panel"><h3>Сообщение</h3><div class="composer">`
-    + `<textarea data-reply="${esc(s.id)}" placeholder="Оркестратору по ${esc(s.id)}: ответ, комментарий или вопрос по задаче">${esc(state.drafts.get(key) || "")}</textarea>`
-    + `<div class="cbar"><label class="ib" title="Прикрепить картинку">${icon("image")}<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden data-attach="${esc(s.id)}"></label>`
-    + `<button class="ib" data-note="${esc(s.id)}" data-session="${esc(orch.session_id || "")}" title="Отправить как комментарий: оркестратор учтёт, отвечать не обязан">${icon("comment")}</button>`
-    + `<button class="ib" data-askadv="${esc(s.id)}" title="Задать как вопрос советнику: ответ появится ниже, беседу можно продолжить">${icon("terminal")}</button>`
+    + `<textarea data-reply="${esc(s.id)}" placeholder="Сообщение">${esc(state.drafts.get(key) || "")}</textarea>`
+    + `<div class="cbar"><label class="ib" title="Картинка">${icon("image")}<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden data-attach="${esc(s.id)}"></label>`
+    + `<button class="ib" data-note="${esc(s.id)}" data-session="${esc(orch.session_id || "")}" title="Комментарий">${icon("comment")}</button>`
+    + `<button class="ib" data-askadv="${esc(s.id)}" title="Вопрос">${icon("terminal")}</button>`
     + imgs.map(p => `<span class="attached">${icon("image")}${esc(p.split("/").pop())}</span>`).join("")
     + `<span class="receipt ${rc.err ? "err" : ""}" style="margin-left:8px">${esc(rc.text || "")}</span><span class="grow"></span>`
-    + `<button class="send" data-send="${esc(s.id)}" data-session="${esc(orch.session_id || "")}" title="Ответ оркестратору">${icon("send")}Ответить</button></div></div></div>`
+    + `<button class="send" data-send="${esc(s.id)}" data-session="${esc(orch.session_id || "")}" title="Ответить">${icon("send")}Ответить</button></div></div></div>`
     + advisorPanel(s)
     + `<div class="panel"><h3>Журнал</h3><ul class="journal">${(s.events || []).slice().reverse().map(e =>
         `<li><span class="d">${when(e.ts)}</span><span class="d">${esc(e.checkpoint ? (STAGES[e.checkpoint] || e.checkpoint) + " " + e.direction : "заметка")}</span><span>${esc(e.text)}</span></li>`).join("") || `<li class="muted">Записей нет</li>`}</ul></div>`;
@@ -501,7 +504,7 @@ document.addEventListener("click", async e => {
   const adv = t.closest("[data-askadv]");
   if (adv) {
     const sid = adv.dataset.askadv, key = "reply:" + sid, text = (state.drafts.get(key) || "").trim();
-    if (!text) { state.receipts.set(key, {text: "Сначала напишите вопрос", err: true}); return render(true); }
+    if (!text) { state.receipts.set(key, {text: "Напишите вопрос", err: true}); return render(true); }
     const {res, data} = await post("/api/advisor", {stream: sid, question: text, model: "sonnet"});
     if (!res.ok) { state.receipts.set(key, {text: "Не принято: " + (data.error || res.status), err: true}); return render(true); }
     state.drafts.delete(key); state.receipts.delete(key); state.adv.add(sid);
@@ -517,6 +520,8 @@ document.addEventListener("click", async e => {
     if (res.ok) { state.drafts.delete("adv:" + sid); const ta = document.querySelector(`[data-advtext="${sid}"]`); if (ta) ta.value = ""; await loadAdvisor(sid); }
     return;
   }
+  const fold = t.closest("[data-advfold]");
+  if (fold && !t.closest("[data-advclose]")) { const sid = fold.dataset.advfold; state.folded.has(sid) ? state.folded.delete(sid) : state.folded.add(sid); return render(true); }
   const advclose = t.closest("[data-advclose]");
   if (advclose) {
     const sid = advclose.dataset.advclose;
