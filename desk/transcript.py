@@ -1,4 +1,4 @@
-"""The orchestrator's asks to the owner, read from its Claude Code transcript."""
+"""The orchestrator's turn-ending status line and its owner items, read from its Claude Code transcript."""
 
 import glob
 import json
@@ -81,10 +81,6 @@ def status_of(text):
     return ""
 
 
-def strip_status(text):
-    return "\n".join(l for l in text.splitlines() if not STATUS_RE.search(l)).strip()
-
-
 def last_status(messages):
     """(message text, status line, timestamp) of the newest text ending a turn."""
     for text, ts in messages:
@@ -92,45 +88,6 @@ def last_status(messages):
         if line:
             return text, line, ts
     return "", "", ""
-
-
-def ask_thread(messages, matches, about=None, updates_limit=3):
-    """Where an owner ask began and what was said about it since.
-
-    Walks turn-ending messages back from the newest while their waiting line still
-    carries a matching item; the oldest of that run is where the question was put.
-    """
-    origin, run, misses = None, [], 0
-    for text, ts in messages:
-        line = status_of(text)
-        if not line:
-            continue
-        if not any(matches(i) for i in owner_items(line)):
-            # One turn may fold the ask into "…and the questions above"; two in a row end the run.
-            misses += 1
-            if misses > 1:
-                break
-            continue
-        misses = 0
-        origin = (text, ts)
-        run.append((text, ts))
-    if not origin:
-        return {}
-    updates = []
-    if about:
-        # The run may start in a turn that only carried the ask forward; the question
-        # itself is in the oldest turn of the run that talks about the stream.
-        relevant = [m for m in run if about(m[0])]
-        if relevant:
-            origin = relevant[-1]
-            run = run[:run.index(origin) + 1]
-        for text, ts in run[:-1]:
-            paras = about(text)
-            if paras:
-                updates.append({"ts": ts, "paragraphs": paras})
-                if len(updates) >= updates_limit:
-                    break
-    return {"origin": {"ts": origin[1], "text": strip_status(origin[0])}, "updates": updates}
 
 
 def owner_items(status_line):
@@ -163,44 +120,3 @@ def stems(text):
 def similar(a, b, share=0.5):
     sa, sb = stems(a), stems(b)
     return bool(sa and sb) and len(sa & sb) / min(len(sa), len(sb)) >= share
-
-
-def paragraphs_matching(message, item):
-    """The sections of the message about an ask: a matching paragraph and what follows it up to the
-    next bold heading, so a question keeps its options and recommendation."""
-    want = stems(item)
-    paras = []
-    for para in re.split(r"\n\s*\n", message):
-        para = "\n".join(l for l in para.strip().splitlines() if not STATUS_RE.search(l)).strip()
-        if para:
-            paras.append(para)
-    out, taken = [], set()
-    for i, para in enumerate(paras):
-        if i in taken or len(stems(para) & want) < min(2, len(want)):
-            continue
-        j = i
-        while True:
-            taken.add(j)
-            out.append(paras[j])
-            j += 1
-            if j >= len(paras) or paras[j].startswith("**"):
-                break
-    return out
-
-
-def paragraphs_about(message, stream_id, pr_numbers):
-    """Paragraphs of the message naming the stream or one of its PRs, status line excluded."""
-    pr_res = [re.compile(rf"#{n}\b") for n in pr_numbers]
-    out = []
-    for para in re.split(r"\n\s*\n", message):
-        para = "\n".join(l for l in para.strip().splitlines() if not STATUS_RE.search(l)).strip()
-        if not para:
-            continue
-        about = lambda s: re.search(rf"\b{re.escape(stream_id)}\b", s) or any(r.search(s) for r in pr_res)
-        if not about(para):
-            continue
-        lines = para.splitlines()
-        if len(lines) > 2 and all(l.lstrip().startswith("|") for l in lines):
-            para = "\n".join(lines[:2] + [l for l in lines[2:] if about(l)])
-        out.append(para)
-    return out

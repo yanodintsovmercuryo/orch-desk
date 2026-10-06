@@ -12,7 +12,9 @@ import threading
 import time
 from datetime import datetime
 
-from . import asks, links
+from . import links
+
+ROOT = os.environ.get("DESK_ROOT") or os.path.expanduser("~/.local/state/desk")
 
 PARENT_TTL = 21600  # a card's parent rarely changes
 CHILDREN_TTL = 900
@@ -21,7 +23,7 @@ STARTED_STATES = ("In Progress", "In Review")
 _cache = {}
 _pending = set()
 _lock = threading.Lock()
-CACHE_FILE = os.path.join(asks.ROOT, "epics-cache.json")
+CACHE_FILE = os.path.join(ROOT, "epics-cache.json")
 
 
 def _load_cache():
@@ -37,7 +39,7 @@ def _load_cache():
 
 def _save_cache():
     try:
-        os.makedirs(asks.ROOT, exist_ok=True)
+        os.makedirs(ROOT, exist_ok=True)
         tmp = CACHE_FILE + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump({f"{k[0]}:{k[1]}": v for k, v in _cache.items() if not (isinstance(v[1], dict) and v[1].get("error"))}, f, ensure_ascii=False)
@@ -169,7 +171,7 @@ def _stage_no(title):
 
 
 def configured():
-    cfg = asks.ROOT and os.path.join(asks.ROOT, "config.json")
+    cfg = ROOT and os.path.join(ROOT, "config.json")
     try:
         with open(cfg, encoding="utf-8") as f:
             return list(json.load(f).get("epics") or [])

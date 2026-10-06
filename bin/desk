@@ -1,40 +1,34 @@
 #!/usr/bin/env python3
-"""desk — the orchestrator's channel to the owner: ask questions, read answers, close them."""
+"""desk — the orchestrator's owner questions, a thin front over `tso ask` (tsod delivers and records them)."""
 
 import argparse
 import os
+import shutil
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-
-from desk import asks  # noqa: E402
+TSO = shutil.which("tso") or os.path.expanduser("~/.local/bin/tso")
 
 EPILOG = """примеры:
   desk ask --task MER-3552 --question "Выпускать ли conn v0.17.0?" \\
       --context-file ctx.md --option "A=Выпустить сразу :: notifier обновит conn сегодня" \\
       --option "B=Сначала ctxval :: релиз на день позже" --recommend A --why "изменение маленькое" \\
       --link https://github.com/MercuryoPro/go-libs/pull/170
-  desk answers          # новые ответы владельца (и отметить их прочитанными)
-  desk done ask-7 --note "смержил #170, тег conn/v0.17.0"
-  desk withdraw ask-7 --note "вопрос снят: ..."
+  desk asks                       # tso ask list --all
+  desk show q-7                   # tso ask show q-7
+  desk done q-7 --note "смержил #170, тег conn/v0.17.0"
+  desk withdraw q-7 --note "вопрос снят: ..."
+
+Вопрос заводится только из оболочки сессии, которая держит имя (tsod берёт спрашивающего по предкам процесса).
+Ответ владельца tsod сам доставляет держателю имени; читать его отдельной командой не нужно.
 """
-
-
-def parse_option(raw):
-    key, sep, rest = raw.partition("=")
-    if not sep or not key.strip():
-        raise SystemExit(f"--option должен быть вида 'A=подпись :: последствия', а не {raw!r}")
-    label, _, effect = rest.partition("::")
-    return {"key": key.strip(), "label": label.strip(), "effect": effect.strip()}
 
 
 def main():
     ap = argparse.ArgumentParser(prog="desk", description=__doc__, epilog=EPILOG,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
-
-    a = sub.add_parser("ask", help="задать вопрос владельцу")
-    a.add_argument("--task", help="задача, к которой относится вопрос (MER-123); без неё — общий вопрос")
+    a = sub.add_parser("ask", help="задать вопрос владельцу (tso ask new)")
+    a.add_argument("--task", help="задача, к которой относится вопрос (MER-123)")
     a.add_argument("--question", required=True, help="вопрос одной строкой")
     a.add_argument("--context", default="", help="контекст в markdown")
     a.add_argument("--context-file", help="контекст из файла (markdown); '-' — из stdin")
@@ -42,52 +36,48 @@ def main():
     a.add_argument("--recommend", help="ключ рекомендуемого варианта")
     a.add_argument("--why", default="", help="почему рекомендуешь")
     a.add_argument("--link", action="append", default=[], help="ссылка на PR/задачу или полный путь к файлу")
-    a.add_argument("--orchestrator", default=os.environ.get("DESK_ORCHESTRATOR", "orchestrator/developer"))
-
-    sub.add_parser("asks", help="открытые и отвеченные вопросы")
-    r = sub.add_parser("answers", help="новые ответы владельца")
-    r.add_argument("--peek", action="store_true", help="не отмечать прочитанными")
-    d = sub.add_parser("done", help="ответ выполнен")
-    d.add_argument("id")
-    d.add_argument("--note", default="")
-    w = sub.add_parser("withdraw", help="вопрос больше не нужен")
-    w.add_argument("id")
-    w.add_argument("--note", default="")
-    s = sub.add_parser("show", help="показать вопрос целиком")
-    s.add_argument("id")
-
+    a.add_argument("--kind", help="merge | release | outward | grant | choice | other")
+    a.add_argument("--free-text", action="store_true", help="разрешить ответ словами без варианта")
+    sub.add_parser("asks", help="открытые вопросы (tso ask list)")
+    for name, helptext in (("show", "показать вопрос целиком"), ("done", "ответ выполнен"), ("withdraw", "вопрос больше не нужен")):
+        p = sub.add_parser(name, help=helptext)
+        p.add_argument("id")
+        if name != "show":
+            p.add_argument("--note", required=True)
     args = ap.parse_args()
-    try:
-        if args.cmd == "ask":
-            context = args.context
-            if args.context_file:
-                context = sys.stdin.read() if args.context_file == "-" else open(args.context_file, encoding="utf-8").read()
-            ask = asks.create(args.question, task=args.task, context=context,
-                              options=[parse_option(o) for o in args.option], recommend=args.recommend,
-                              why=args.why, links=args.link, orchestrator=args.orchestrator)
-            print(f"{ask['id']} создан: {ask['question']}")
-        elif args.cmd == "asks":
-            for q in asks.all_asks():
-                if q["status"] in ("open", "answered"):
-                    print(f"{q['id']:8} {q['status']:9} {q.get('task') or '—':10} {q['question']}")
-        elif args.cmd == "answers":
-            pending = asks.pending_answers()
-            if not pending:
-                print("новых ответов нет")
-            for q in pending:
-                print(asks.render_answer(q))
-                print()
-                if not args.peek:
-                    asks.consume(q["id"])
-        elif args.cmd == "done":
-            print(f"{asks.done(args.id, args.note)['id']} выполнен")
-        elif args.cmd == "withdraw":
-            print(f"{asks.withdraw(args.id, args.note)['id']} снят")
-        elif args.cmd == "show":
-            import json
-            print(json.dumps(asks.get(args.id), ensure_ascii=False, indent=1))
-    except ValueError as e:
-        raise SystemExit(f"desk: {e}")
+
+    if args.cmd == "ask":
+        context = args.context
+        if args.context_file:
+            context = sys.stdin.read() if args.context_file == "-" else open(args.context_file, encoding="utf-8").read()
+        extra = []
+        if args.task:
+            extra.append(f"Задача: {args.task}")
+        if args.link:
+            extra.append("Ссылки:\n" + "\n".join(f"- {link}" for link in args.link))
+        context = "\n\n".join(part for part in [context.strip(), *extra] if part)
+        cmd = [TSO, "ask", "new", "--title", args.question]
+        if context:
+            cmd += ["--context", context]
+        for option in args.option:
+            cmd += ["--option", option]
+        if args.recommend:
+            cmd += ["--recommend", args.recommend]
+        if args.why:
+            cmd += ["--why", args.why]
+        if args.task:
+            cmd += ["--stream", args.task]
+        if args.kind:
+            cmd += ["--kind", args.kind]
+        if args.free_text:
+            cmd += ["--free-text"]
+    elif args.cmd == "asks":
+        cmd = [TSO, "ask", "list", "--all"]
+    elif args.cmd == "show":
+        cmd = [TSO, "ask", "show", args.id]
+    else:
+        cmd = [TSO, "ask", args.cmd, args.id, "--note", args.note]
+    os.execv(TSO, cmd)
 
 
 if __name__ == "__main__":

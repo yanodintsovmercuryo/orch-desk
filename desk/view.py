@@ -1,13 +1,13 @@
-"""Assemble the page's JSON from orchestrator state, transcripts and links."""
+"""Assemble the page's JSON: streams from the plugin's files, owner questions from tsod, links from Linear and GitHub."""
 
-import hashlib
 import os
 import re
 from concurrent.futures import ThreadPoolExecutor
 
-from . import deliver, links, state, terminal, transcript, workspace
+from . import deliver, links, state, terminal, tsoq
 
-CLOSED_LIMIT = 500
+CLOSED_LIMIT = 100
+TASK_ID = re.compile(r"\b[A-Z][A-Z0-9]+-\d+\b")
 
 
 def _event_json(ev):
@@ -23,101 +23,59 @@ def _links(st, prs):
     }
 
 
+def _stage(st, lk):
+    """Index of the stage and whether it was read off the PR because the journal says nothing."""
+    idx, moved = state.progress(st.events)
+    inferred = False
+    pr = lk["pr"]
+    if idx < 0 and not st.events:
+        prs = pr.get("state")
+        idx = state.ORDERED.index("pre-merge") if prs == "MERGED" else state.ORDERED.index("pre-publish") if prs == "OPEN" \
+            else state.ORDERED.index("plan-passed")
+        inferred = True
+    # An open, non-draft PR means published even when the journal stayed silent about it.
+    if 0 <= idx < state.ORDERED.index("pre-merge") and pr.get("state") == "OPEN" and not pr.get("isDraft") and not pr.get("draft"):
+        idx = state.ORDERED.index("pre-merge")
+    return idx, moved, inferred
+
+
 def build(root=None):
     checkpoints = state.load_checkpoints()
-    out = {"root": root or state.state_root(), "orchestrators": [], "streams": [], "general_asks": []}
+    out = {"root": root or state.state_root(), "orchestrators": [], "streams": []}
     all_streams = []
+    under_tso = tsoq.lines_under_tso()
     for orch in state.orchestrators(root):
         reg = orch["registry"]
-        path = transcript.find_transcript(reg)
-        messages, msg, status, ts, error = [], "", "", "", ""
-        if path:
-            try:
-                messages = transcript.recent_messages(path)
-                msg, status, ts = transcript.last_status(messages)
-            except OSError as e:
-                error = str(e)
-        else:
-            error = "transcript not found"
-        items = transcript.owner_items(status)
         out["orchestrators"].append({
-            "name": orch["name"], "session_id": reg.get("session_id", ""), "transcript": path,
-            "status_line": status, "message": msg, "message_ts": ts, "owner_items": items, "error": error,
-            "session_status": deliver.session_status(reg.get("session_id", "")),
+            "name": orch["name"], "session_id": reg.get("session_id", ""),
+            "session_status": deliver.session_status(reg.get("session_id", "")), "under_tso": under_tso,
         })
         for st in state.streams(orch, checkpoints):
-            all_streams.append((orch["name"], st, messages, items))
+            all_streams.append((orch["name"], st))
 
     def assemble(row):
-        orch_name, st, messages, items = row
-        journal_prs, mentioned = set(), set()
+        orch_name, st = row
+        journal_prs = set()
         for ev in st.events:
             # Only "PR #N" names the stream's own PR; a bare #N may be another repository's.
             journal_prs |= set(re.findall(r"\bPR #(\d+)\b", ev.text))
-            mentioned |= transcript.refs(ev.text)[1]
         lk = _links(st, journal_prs)
-        pr_no = lk["pr"].get("number")
-        own_prs = {str(pr_no)} if pr_no else journal_prs
-        # Until GitHub answers, any #N the journal mentions may identify the stream in an ask.
-        match_prs = own_prs if pr_no else journal_prs | mentioned
-        idx, moved = state.progress(st.events)
-        inferred = False
-        if idx < 0 and not st.events:
-            # No journal at all: read the stage off the PR, and say so on the page.
-            prs = lk["pr"].get("state")
-            idx = state.ORDERED.index("pre-merge") if prs == "MERGED" else state.ORDERED.index("pre-publish") if prs == "OPEN" \
-                else state.ORDERED.index("plan-passed")
-            inferred = True
-        # An open, non-draft PR means published even when the journal stayed silent about it.
-        pr = lk["pr"]
-        if 0 <= idx < state.ORDERED.index("pre-merge") and pr.get("state") == "OPEN" and not pr.get("isDraft") and not pr.get("draft"):
-            idx = state.ORDERED.index("pre-merge")
-        asks = [i for i in items if _names_stream(i, st.id, match_prs)]
-        ask = transcript.ask_thread(
-            messages, lambda i: _names_stream(i, st.id, match_prs),
-            lambda t: transcript.paragraphs_about(t, st.id, own_prs)) if asks else {}
+        idx, moved, inferred = _stage(st, lk)
         closed = idx == len(state.ORDERED) - 1
-        contour = {} if closed else workspace.status(st.header.get("repository", ""))
-        if contour.get("app_up"):
-            contour["app_up"]["tail"] = workspace.log_tail(contour["app_up"]["log"])
         prompt = None if closed else terminal.waiting_prompt(st.header.get("repository", ""))
         return {
-            "prompt": prompt,
-            "prepared": st.prepared,
-            "workspace": contour,
+            "prompt": prompt, "prepared": st.prepared,
             "id": st.id, "orchestrator": orch_name, "header": st.header, "derived": st.derived,
-            "error": st.error, "note": st.note, "progress": {"index": idx, "total": len(state.ORDERED), "intent_moved": moved, "inferred": inferred},
+            "error": st.error, "note": st.note,
+            "progress": {"index": idx, "total": len(state.ORDERED), "intent_moved": moved, "inferred": inferred},
             "milestones": state.milestones(st.events),
             "events": [_event_json(e) for e in st.events],
             "last_ts": st.events[-1].ts if st.events else "",
-            "closed": closed,
-            "owner_asks": asks,
-            "ask": ask,
-            "links": lk,
+            "closed": closed, "links": lk,
         }
 
     with ThreadPoolExecutor(max_workers=8) as pool:
         rows = list(pool.map(assemble, all_streams))
-
-    matched = {a for r in rows for a in r["owner_asks"]}
-    by_orch = {}
-    for orch_name, _, messages, _ in all_streams:
-        by_orch.setdefault(orch_name, messages)
-    for o in out["orchestrators"]:
-        for item in o["owner_items"]:
-            if item in matched:
-                continue
-            ids = transcript.refs(item)[0]
-            # The wording of a general ask drifts turn to turn; match it by the tasks it names or its words.
-            same = (lambda i, ids=ids: bool(transcript.refs(i)[0] & ids)) if ids \
-                else (lambda i, item=item: transcript.similar(i, item))
-            out["general_asks"].append({
-                # Keyed by the tasks it names when it names any: the wording shifts turn to turn.
-                "id": "g-" + hashlib.sha1((" ".join(sorted(ids)) or item).encode()).hexdigest()[:8],
-                "orchestrator": o["name"], "item": item,
-                "ask": _general_thread(transcript.ask_thread(
-                    by_orch.get(o["name"], []), same, lambda t, item=item: transcript.paragraphs_matching(t, item)), item),
-            })
 
     # A record with no journal line is only "taken into work" while a session still runs in its worktree.
     try:
@@ -126,45 +84,39 @@ def build(root=None):
         live_cwds = None
     if live_cwds is not None:
         rows = [r for r in rows if r["closed"] or r["events"] or (r["header"].get("repository") or "").rstrip("/") in live_cwds]
-    open_rows = sorted((r for r in rows if not r["closed"]),
-                       key=lambda r: (not (r["owner_asks"] or r["prompt"]), _neg(r["last_ts"])))
+
+    open_rows = sorted((r for r in rows if not r["closed"]), key=lambda r: (not r["prompt"], _neg(r["last_ts"])))
     closed_rows = sorted((r for r in rows if r["closed"]), key=lambda r: r["last_ts"], reverse=True)
     out["streams"] = open_rows + closed_rows[:CLOSED_LIMIT]
     out["checkpoints"] = state.ORDERED
-    out["replies_log"] = os.environ.get("DESK_REPLIES_LOG", "")
+    attach_questions(out, tsoq.questions())
     return out
 
 
+def attach_questions(out, qs):
+    """Each open question goes to the stream it names (its --stream, or a task id in its title); the rest stay general."""
+    ids = {s["id"] for s in out["streams"]}
+    for s in out["streams"]:
+        s["questions"] = []
+    general = []
+    for q in qs:
+        sid = q["stream"] if q["stream"] in ids else next((t for t in TASK_ID.findall(q["title"]) if t in ids), "")
+        if sid:
+            next(s for s in out["streams"] if s["id"] == sid)["questions"].append(q)
+        else:
+            general.append(q)
+    out["questions"] = qs
+    out["general_questions"] = general
+
+
 def build_orchestrators(root=None):
-    """Session ids and stream ids only: the cheap check a reply is validated against."""
+    """Session ids, names and stream ids only: the cheap check a reply is validated against."""
     out = []
     for orch in state.orchestrators(root):
         sids = [os.path.basename(p) for p in sorted(os.listdir(os.path.join(orch["dir"], "streams")))] \
             if os.path.isdir(os.path.join(orch["dir"], "streams")) else []
         out.append({"name": orch["name"], "session_id": orch["registry"].get("session_id", ""), "streams": sids})
     return out
-
-
-def _general_thread(thread, item):
-    # A general ask is usually one line of a longer turn: show the paragraphs about it, keep the rest.
-    origin = thread.get("origin")
-    if origin:
-        paras = transcript.paragraphs_matching(origin["text"], item)
-        if paras:
-            origin["full"], origin["text"] = origin["text"], "\n\n".join(paras)
-    return thread
-
-
-def general_asks(orch_name):
-    return [g["item"] for g in build()["general_asks"] if g["orchestrator"] == orch_name]
-
-
-def current_asks(orch_name, stream_id):
-    """Owner asks naming the stream in the orchestrator's latest waiting line."""
-    for o in build()["orchestrators"]:
-        if o["name"] == orch_name:
-            return [i for i in o["owner_items"] if stream_id in transcript.refs(i)[0]]
-    return []
 
 
 def stream_repo(stream_id, root=None):
@@ -175,14 +127,6 @@ def stream_repo(stream_id, root=None):
             with open(card, encoding="utf-8") as f:
                 return state.parse_card(f.read())[0].get("repository", "")
     return ""
-
-
-def _names_stream(item, stream_id, pr_numbers):
-    ids, prs = transcript.refs(item)
-    if stream_id in ids:
-        return True
-    # A bare PR number counts only when the item names no other stream.
-    return bool(prs & {str(n) for n in pr_numbers}) and not ids
 
 
 def _neg(ts):

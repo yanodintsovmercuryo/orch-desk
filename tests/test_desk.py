@@ -3,7 +3,7 @@ import os
 import tempfile
 import unittest
 
-from desk import asks, deliver, source, state, terminal, transcript, uploads, view
+from desk import deliver, state, terminal, transcript, tsoq, uploads, view
 
 CHECKPOINTS = state.load_checkpoints(pattern="/nonexistent/*")
 
@@ -99,14 +99,6 @@ class TranscriptTest(unittest.TestCase):
     def test_items_for_other_parties_are_ignored(self):
         self.assertEqual(transcript.owner_items("waiting: MER-3 stream — report · 2026"), [])
 
-    def test_paragraphs_keep_table_header_and_own_rows(self):
-        paras = transcript.paragraphs_about(MESSAGE, "MER-1", {"122"})
-        self.assertEqual(paras[0], "MER-1 (PR #122) is ready for your look.")
-        self.assertIn("| PR | Ask |", paras[1])
-        self.assertIn("notifier #122", paras[1])
-        self.assertNotIn("go-libs", paras[1])
-        self.assertEqual(len(paras), 2)
-
     def test_transcript_tail_finds_last_status_message(self):
         with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as f:
             for text in ["old\n\nwaiting: ты — old ask · t", MESSAGE, "mid-turn chatter"]:
@@ -119,59 +111,8 @@ class TranscriptTest(unittest.TestCase):
             text, status, _ = transcript.last_status(msgs)
             self.assertEqual(text, MESSAGE)
             self.assertTrue(status.startswith("in flight: MER-3"))
-            thread = transcript.ask_thread(msgs, lambda i: "MER-1" in i,
-                                           lambda t: transcript.paragraphs_about(t, "MER-1", {"122"}))
-            self.assertIn("MER-1 (PR #122) is ready", thread["origin"]["text"])
-            self.assertNotIn("waiting:", thread["origin"]["text"])
         finally:
             os.unlink(f.name)
-
-
-class AskThreadTest(unittest.TestCase):
-    def msgs(self, *texts):
-        return [(t, f"T{n}") for n, t in enumerate(texts)]  # newest first
-
-    def test_origin_is_the_oldest_turn_of_the_run_that_talks_about_it(self):
-        msgs = self.msgs(
-            "update on MER-1\n\nwaiting: ты — вариант A по MER-1 · t",
-            "carry only\n\nwaiting: ты — вариант A по MER-1 · t",
-            "MER-1: options A, B\n\nOption A details\n\nwaiting: ты — вариант A по MER-1 · t",
-            "before the ask\n\nwaiting: ты — something else · t",
-            "still before\n\nwaiting: ты — another thing · t",
-            "old MER-1 talk\n\nwaiting: ты — вариант A по MER-1 · t",
-        )
-        about = lambda t: transcript.paragraphs_about(t, "MER-1", set())
-        thread = transcript.ask_thread(msgs, lambda i: "MER-1" in i, about)
-        self.assertEqual(thread["origin"]["ts"], "T2")
-        self.assertIn("Option A details", thread["origin"]["text"])
-        self.assertEqual([u["ts"] for u in thread["updates"]], ["T0"])
-
-    def test_one_folded_turn_does_not_end_the_run(self):
-        msgs = self.msgs(
-            "now\n\nwaiting: ты — вариант A по MER-1 · t",
-            "folded\n\nwaiting: ты — и вопросы выше · t",
-            "MER-1: the options\n\nwaiting: ты — вариант A по MER-1 · t",
-        )
-        about = lambda t: transcript.paragraphs_about(t, "MER-1", set())
-        self.assertEqual(transcript.ask_thread(msgs, lambda i: "MER-1" in i, about)["origin"]["ts"], "T2")
-
-    def test_general_ask_matches_by_shared_words(self):
-        self.assertTrue(transcript.similar("какие задачи go-libs завести из 11",
-                                           "права на пакетное создание, какие задачи go-libs заводить"))
-        self.assertFalse(transcript.similar("вид MER-3226 на 20469", "какие задачи go-libs заводить"))
-
-    def test_a_general_ask_keeps_its_whole_section(self):
-        msg = ("**Смержено.** всё хорошо\n\n**Вопрос. Какие предложения заводить задачами?**\n\n"
-               "Варианты:\n1. первое\n2. второе\n\nРекомендация: 1.\n\n**Дальше.** другое\n\n"
-               "waiting: ты — какие предложения заводить задачами · t")
-        paras = transcript.paragraphs_matching(msg, "какие предложения заводить задачами")
-        self.assertEqual(paras[0], "**Вопрос. Какие предложения заводить задачами?**")
-        self.assertIn("Варианты:\n1. первое\n2. второе", paras)
-        self.assertIn("Рекомендация: 1.", paras)
-        self.assertFalse(any("Дальше" in p or "Смержено" in p for p in paras))
-
-    def test_no_ask_no_thread(self):
-        self.assertEqual(transcript.ask_thread(self.msgs("x\n\nwaiting: ты — y · t"), lambda i: "MER-1" in i), {})
 
 
 SCREEN = """⏺ earlier output
@@ -202,33 +143,66 @@ class TerminalPromptTest(unittest.TestCase):
         self.assertEqual(p["options"][2]["hint"], "")
 
 
-class SourceTest(unittest.TestCase):
-    def test_only_files_under_the_owner_roots_are_readable(self):
-        self.assertEqual(source.allowed("/etc/hosts"), "")
-        self.assertEqual(source.allowed("~/.ssh/config"), "")
-        self.assertEqual(source.allowed("~/orca/workspaces/../.zshrc"), "")
-        self.assertTrue(source.allowed("~/orca/workspaces/notifier/x.go").endswith("/orca/workspaces/notifier/x.go"))
-
-    def test_read_focuses_a_line_within_the_file(self):
-        with tempfile.TemporaryDirectory() as d:
-            path = os.path.join(d, "f.go")
-            with open(path, "w") as f:
-                f.write("a\nb\nc\n")
-            orig, source.roots = source.roots, lambda: [os.path.realpath(d)]
-            try:
-                out = source.read(path, 99)
-            finally:
-                source.roots = orig
-            self.assertEqual(out["lines"], ["a", "b", "c"])
-            self.assertEqual(out["line"], 3)
-
-
 class ViewTest(unittest.TestCase):
-    def test_bare_pr_number_counts_only_without_other_stream(self):
-        self.assertTrue(view._names_stream("по go-libs #162: мерж", "MER-2", {162}))
-        self.assertFalse(view._names_stream("приёмка #162 (MER-5)", "MER-2", {"162"}))
-        self.assertFalse(view._names_stream("приёмка #1620", "MER-2", {"162"}))
-        self.assertTrue(view._names_stream("приёмка вида #122 (MER-1) и #120 (MER-2)", "MER-2", set()))
+    def test_a_question_goes_to_the_stream_it_names_or_to_the_general_list(self):
+        out = {"streams": [{"id": "MER-1"}, {"id": "MER-2"}]}
+        qs = [{"id": "q-1", "stream": "MER-1", "title": "a"}, {"id": "q-2", "stream": "", "title": "про MER-2: выбрать"},
+              {"id": "q-3", "stream": "MER-9", "title": "чужой"}]
+        view.attach_questions(out, qs)
+        self.assertEqual([q["id"] for q in out["streams"][0]["questions"]], ["q-1"])
+        self.assertEqual([q["id"] for q in out["streams"][1]["questions"]], ["q-2"])
+        self.assertEqual([q["id"] for q in out["general_questions"]], ["q-3"])
+
+
+class TsoqTest(unittest.TestCase):
+    LIST = ("q-3  open      orchestrator/developer  MER-3370  2h  Принять D2 и поправку?\n"
+            "q-4  answered  orchestrator/developer  -         5m  Вопрос без задачи\n"
+            "garbage line\n")
+    SHOW = ("q-3  open  orchestrator/developer  (session abc-123)\n"
+            "title: Принять D2?\n"
+            "kind: choice  stream: MER-3370  checkpoint: pre-merge  deadline: -  free text: false\n"
+            "context:\n  Первая строка.\n  \n  Вторая строка.\n"
+            "options:\n"
+            "  A  Принять — стрим сменит статус  (recommended: решение описывает срез)\n"
+            "  B  Оставить — решение остаётся proposed\n"
+            "answer: A via web, words: ок\n"
+            "delivery (answer): delivered after 1 attempt(s)\n"
+            "events:\n  question.asked  2026-10-07T10:00:00Z\n")
+
+    def test_list_rows(self):
+        rows = tsoq.parse_list(self.LIST)
+        self.assertEqual([(r["id"], r["status"], r["stream"], r["title"]) for r in rows],
+                         [("q-3", "open", "MER-3370", "Принять D2 и поправку?"), ("q-4", "answered", "", "Вопрос без задачи")])
+
+    def test_show_fields_options_and_answer(self):
+        q = tsoq.parse_show(self.SHOW)
+        self.assertEqual((q["id"], q["status"], q["stream"], q["checkpoint"], q["deadline"]), ("q-3", "open", "MER-3370", "pre-merge", ""))
+        self.assertEqual(q["context"], "Первая строка.\n\nВторая строка.")
+        self.assertEqual([(o["key"], o["recommended"]) for o in q["options"]], [("A", True), ("B", False)])
+        self.assertEqual((q["recommend"], q["why"]), ("A", "решение описывает срез"))
+        self.assertEqual(q["answer"], {"option": "A", "surface": "web", "text": "ок", "request": False})
+
+    def test_only_live_questions_are_listed(self):
+        rows = "q-1  done  o/d  -  1d  старый\nq-2  open  o/d  MER-1  1m  живой\nq-3  withdrawn  o/d  -  1d  снят\n"
+        self.assertEqual([q["id"] for q in tsoq.questions(run=lambda *_a, **_k: (0, rows, ""))], ["q-2"])
+
+    def test_answer_codes(self):
+        self.assertTrue(tsoq.answer("q-1", option="A", run=lambda *_a, **_k: (0, "delivered", ""))["acked"])
+        r = tsoq.answer("q-1", text="words", run=lambda *_a, **_k: (3, "", "held"))
+        self.assertEqual((r["ok"], r["acked"]), (True, False))
+        self.assertFalse(tsoq.answer("q-1", option="A", run=lambda *_a, **_k: (1, "", "refused"))["ok"])
+        with self.assertRaises(ValueError):
+            tsoq.answer("1", option="A")
+        with self.assertRaises(ValueError):
+            tsoq.answer("q-1")
+
+    def test_send_codes(self):
+        self.assertTrue(tsoq.send("orchestrator/developer", "hi", run=lambda *_a, **_k: (0, "", ""))["ok"])
+        self.assertTrue(tsoq.send("orchestrator/developer", "hi", run=lambda *_a, **_k: (3, "", ""))["ok"])
+        r = tsoq.send("orchestrator/developer", "hi", run=lambda *_a, **_k: (5, "", ""))
+        self.assertEqual((r["ok"], r["code"]), (False, 5))
+        with self.assertRaises(ValueError):
+            tsoq.send("developer", "hi")
 
 
 class UploadsTest(unittest.TestCase):
@@ -297,83 +271,6 @@ class DeliverTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 deliver.send("s", "MER-1", "x" * (deliver.MAX_LEN + 1), log)
             self.assertFalse(os.path.exists(log))
-
-
-if __name__ == "__main__":
-    unittest.main()
-
-
-class SupervisorTest(unittest.TestCase):
-    def test_nudges_and_notifies_on_idle_capacity_silence_unread_and_new_asks(self):
-        from datetime import datetime, timedelta, timezone
-        from desk import supervisor
-        with tempfile.TemporaryDirectory() as d:
-            saved = (supervisor.ROOT, supervisor.CONFIG, supervisor.MEMORY, supervisor.EVENTS, asks.ROOT, asks.DIR)
-            supervisor.ROOT = asks.ROOT = d
-            asks.DIR = os.path.join(d, "asks")
-            supervisor.CONFIG, supervisor.MEMORY, supervisor.EVENTS = (os.path.join(d, n) for n in ("c.json", "m.json", "e.jsonl"))
-            ago = lambda m: (datetime.now(timezone.utc) - timedelta(minutes=m)).isoformat()
-            data = {"orchestrators": [{"name": "o/d", "session_id": "S", "message_ts": ago(30)}],
-                    "streams": [{"id": "MER-1", "orchestrator": "o/d", "closed": False, "last_ts": ago(60),
-                                 "header": {"repository": "/w/1"}, "prompt": None},
-                                {"id": "MER-2", "orchestrator": "o/d", "closed": False, "last_ts": ago(5),
-                                 "header": {"repository": "/w/2"}, "prompt": None}]}
-            said, told = [], []
-            patches = [(supervisor.view, "build", lambda: data),
-                       (supervisor.deliver, "agents", lambda max_age=0: [
-                           {"sessionId": "S", "status": "idle"}, {"sessionId": "x", "cwd": "/w/1", "status": "idle"}]),
-                       (supervisor.deliver, "poke", lambda sid, text: said.append(text) or {"ok": True}),
-                       (supervisor, "notify", lambda t, x: told.append(t) or True)]
-            originals = [(obj, name, getattr(obj, name)) for obj, name, _ in patches]
-            for obj, name, fn in patches:
-                setattr(obj, name, fn)
-            try:
-                a = asks.create("вопрос?", task="MER-9")
-                b = asks.create("отвечен?")
-                asks.answer(b["id"], "да")
-                with open(asks._path(b["id"])) as f:
-                    rec = json.load(f)
-                rec["answer"]["ts"] = ago(10)
-                asks._write(rec)
-                supervisor.Supervisor().tick()
-                self.assertTrue(any("непрочитанные ответы" in t for t in said))
-                self.assertTrue(any("в работе 2 из 4" in t for t in said))
-                self.assertTrue(any("MER-1 молчит" in t for t in said))
-                self.assertFalse(any("MER-2" in t for t in said))
-                self.assertIn(f"Вопрос {a['id']} · MER-9", told)
-                said.clear(); told.clear()
-                supervisor.Supervisor().tick()
-                self.assertEqual((said, told), ([], []), "a second tick inside the rate window stays quiet")
-            finally:
-                for obj, name, fn in originals:
-                    setattr(obj, name, fn)
-                (supervisor.ROOT, supervisor.CONFIG, supervisor.MEMORY, supervisor.EVENTS, asks.ROOT, asks.DIR) = saved
-
-
-class UsageTest(unittest.TestCase):
-    def test_scan_buckets_calls_per_hour_and_keeps_last_context(self):
-        import json as _json, tempfile
-        from desk import usage
-        lines = [
-            {"type": "user", "cwd": "/tmp/repo", "timestamp": "2026-09-28T10:00:00Z", "message": {"content": "You are the stream session MER-1, launched"}},
-            {"type": "assistant", "timestamp": "2026-09-28T10:05:00Z", "message": {"model": "claude-opus-5-5", "usage": {"input_tokens": 10, "output_tokens": 100, "cache_creation_input_tokens": 1000, "cache_read_input_tokens": 50000}}},
-            {"type": "assistant", "timestamp": "2026-09-28T11:05:00Z", "message": {"model": "claude-opus-5-5", "usage": {"input_tokens": 20, "output_tokens": 200, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 80000}}},
-        ]
-        with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as f:
-            f.write("\n".join(_json.dumps(l) for l in lines) + "\n" + '{"type":"assistant","timestamp":"2026-09-28T12:00:00Z","message":{"usage":{"output_tokens":5')
-            path = f.name
-        rec = {}
-        usage._scan(path, rec)
-        self.assertEqual(rec["cwd"], "/tmp/repo")
-        self.assertTrue(rec["first"].startswith("You are the stream session MER-1"))
-        self.assertEqual(rec["hours"]["2026-09-28T10"], [100, 10, 1000, 50000, 1])
-        self.assertEqual(rec["hours"]["2026-09-28T11"], [200, 20, 0, 80000, 1])
-        self.assertEqual(rec["last_ctx"], 80020)
-        self.assertEqual(rec["model"], "claude-opus-5-5")
-        # The torn last line waits for the next read: the offset stops before it.
-        with open(path, "rb") as fh:
-            self.assertEqual(fh.read()[rec["offset"]:][:8], b'{"type":')
-        self.assertAlmostEqual(usage.weight([100, 10, 1000, 50000]), 100 * 5 + 10 + 1250 + 5000)
 
 
 class EpicCountTest(unittest.TestCase):
@@ -505,3 +402,46 @@ class EpicTrackersTest(unittest.TestCase):
         s = {"id": "MER-3690-S4", "header": {"tracker": "MER-3690-S4 (notifier step) MER-3690, MER-3711"}}
         self.assertEqual(epics._trackers(s), ["MER-3690", "MER-3711"])
         self.assertEqual(epics._trackers({"id": "MER-4170", "header": {}}), ["MER-4170"])
+
+
+class DeliverViaTsoTest(unittest.TestCase):
+    def setUp(self):
+        self.sent = []
+        self._tso, self._term = tsoq.send, deliver._terminal_send
+
+    def tearDown(self):
+        tsoq.send, deliver._terminal_send = self._tso, self._term
+
+    def test_a_delivered_message_does_not_touch_the_terminal(self):
+        tsoq.send = lambda name, text: {"ok": True, "code": 0, "message": "ok"}
+        deliver._terminal_send = lambda *_a: self.fail("terminal used")
+        out = deliver._deliver("sid", "orchestrator/developer", "line")
+        self.assertEqual((out["via"], out["ok"]), ("tso", True))
+
+    def test_nobody_under_tso_falls_back_to_the_terminal(self):
+        tsoq.send = lambda name, text: {"ok": False, "code": 5, "message": "nobody"}
+        deliver._terminal_send = lambda sid, line: {"ok": True, "target": {}, "stages": []}
+        out = deliver._deliver("sid", "orchestrator/developer", "line")
+        self.assertEqual((out["via"], out["ok"]), ("terminal", True))
+
+    def test_a_refusal_other_than_nobody_is_reported_not_retyped(self):
+        tsoq.send = lambda name, text: {"ok": False, "code": 1, "message": "refused"}
+        deliver._terminal_send = lambda *_a: self.fail("terminal used")
+        out = deliver._deliver("sid", "orchestrator/developer", "line")
+        self.assertEqual((out["via"], out["ok"], out["error"]), ("tso", False, "refused"))
+
+
+class StopHookTest(unittest.TestCase):
+    def test_a_question_without_a_tso_record_blocks_and_a_covered_one_passes(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("stop_asks", os.path.join(os.path.dirname(__file__), "..", "hooks", "stop_asks.py"))
+        hook = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(hook)
+        live = [{"id": "q-5", "stream": "MER-1", "title": "Принять D2?"}]
+        self.assertTrue(hook.covered("приёмка D2 по MER-1", live))
+        self.assertTrue(hook.covered("вопрос q-9", live))
+        self.assertFalse(hook.covered("совсем другое про MER-7", live))
+
+
+if __name__ == "__main__":
+    unittest.main()

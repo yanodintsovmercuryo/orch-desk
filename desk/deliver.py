@@ -1,4 +1,4 @@
-"""Deliver the owner's reply to the orchestrator's Orca terminal."""
+"""Deliver the owner's reply to the orchestrator: through tso, and into its Orca terminal only when tso has no line for it."""
 
 import json
 import os
@@ -7,6 +7,8 @@ import subprocess
 import threading
 import time
 from datetime import datetime
+
+from . import tsoq
 
 HANDLE_RE = re.compile(r"\bORCA_TERMINAL_HANDLE=(term_[0-9a-f-]+)")
 MAX_LEN = 4000
@@ -112,7 +114,27 @@ def format_reply(stream, text, images=(), asks=(), kind="reply"):
     return f"{head}: {body}"
 
 
-def send(session_id, stream, text, log_path, images=(), asks=(), kind="reply"):
+def _terminal_send(session_id, line):
+    target = resolve(session_id)
+    out = _run(["orca", "terminal", "send", "--terminal", target["handle"], "--text", line,
+                "--enter", "--wait-submit", "5", "--json"], timeout=30)
+    receipt = json.loads(out)
+    sent = ((receipt.get("result") or {}).get("send") or {})
+    return {"target": target, "receipt": receipt, "ok": bool(receipt.get("ok") and sent.get("accepted")),
+            "stages": (sent.get("prompt") or {}).get("stages", [])}
+
+
+def _deliver(session_id, name, line):
+    """tso first (attested, wakes a sleeping line); the terminal only when nobody holds the name under tso."""
+    if name:
+        via = tsoq.send(name, line)
+        if via["ok"] or via["code"] != 5:
+            return {"via": "tso", "ok": via["ok"], "tso": via, **({} if via["ok"] else {"error": via["message"]})}
+    out = _terminal_send(session_id, line)
+    return {"via": "terminal", **out}
+
+
+def send(session_id, stream, text, log_path, images=(), asks=(), kind="reply", name=None):
     if not text.strip() and not images:
         raise ValueError("пустой ответ")
     if kind == "note" and not stream:
@@ -125,14 +147,7 @@ def send(session_id, stream, text, log_path, images=(), asks=(), kind="reply"):
     record = {"ts": datetime.now().astimezone().isoformat(timespec="seconds"), "stream": stream, "text": line,
               "images": list(images), "kind": kind, "asks": [_one_line(a) for a in asks]}
     try:
-        target = resolve(session_id)
-        record["target"] = target
-        out = _run(["orca", "terminal", "send", "--terminal", target["handle"], "--text", line,
-                    "--enter", "--wait-submit", "5", "--json"], timeout=30)
-        record["receipt"] = json.loads(out)
-        sent = ((record["receipt"].get("result") or {}).get("send") or {})
-        record["ok"] = bool(record["receipt"].get("ok") and sent.get("accepted"))
-        record["stages"] = (sent.get("prompt") or {}).get("stages", [])
+        record.update(_deliver(session_id, name, line))
     except Exception as e:
         record["ok"], record["error"] = False, str(e)[:500]
     with _log_lock, open(log_path, "a", encoding="utf-8") as f:
@@ -140,15 +155,12 @@ def send(session_id, stream, text, log_path, images=(), asks=(), kind="reply"):
     return record
 
 
-def poke(session_id, text):
-    """Types one line into the orchestrator's terminal; the receipt says whether Orca accepted it."""
+def poke(session_id, text, name=None):
+    """One line to the orchestrator; the receipt says how it went."""
     if os.environ.get("DESK_NO_POKE"):
-        return {"ok": False, "error": "DESK_NO_POKE: test instance, nothing typed", "text": text}
-    target = resolve(session_id)
-    out = json.loads(_run(["orca", "terminal", "send", "--terminal", target["handle"], "--text", _one_line(text),
-                           "--enter", "--wait-submit", "5", "--json"], timeout=30))
-    sent = ((out.get("result") or {}).get("send") or {})
-    return {"ok": bool(out.get("ok") and sent.get("accepted")), "stages": (sent.get("prompt") or {}).get("stages", [])}
+        return {"ok": False, "error": "DESK_NO_POKE: test instance, nothing sent", "text": text}
+    out = _deliver(session_id, name, _one_line(text))
+    return {k: out[k] for k in ("via", "ok", "stages", "tso") if k in out}
 
 
 def log(log_path, record):

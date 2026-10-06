@@ -4,3 +4,5 @@ replies.jsonl
 logs/
 uploads/
 advisor/
+watchdog.log
+janitor/trim.log
