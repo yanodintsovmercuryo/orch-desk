@@ -102,13 +102,15 @@ a.chip:hover { background: var(--surface-3); color: var(--text); }
 .dot.off { background: var(--text-3); }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
 .ico { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.qa { padding: 16px 0; border-top: 1px solid var(--border); }
+.qa { padding: 18px 0; border-top: 1px solid var(--border-strong); }
 .qa:first-child { border-top: 0; padding-top: 4px; }
-.qline { display: flex; align-items: flex-start; gap: 10px; }
+.qline { display: flex; align-items: flex-start; gap: 10px; background: var(--surface-2); border-radius: 6px; padding: 9px 12px; }
 .qline .ico { margin-top: 3px; color: var(--accent); }
 .qline .qtext { flex: 1; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
-.qline .ts { font-size: 12px; color: var(--text-3); white-space: nowrap; margin-top: 2px; }
-.answer { margin: 10px 0 0 26px; max-width: 80ch; line-height: 1.6; overflow-wrap: anywhere; }
+.qline .ts, .ahead .ts { font-size: 12px; color: var(--text-3); white-space: nowrap; margin-top: 2px; }
+.ahead { display: flex; align-items: center; justify-content: space-between; margin: 14px 12px 0; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.alabel { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-3); font-weight: 600; }
+.answer { margin: 12px 12px 0; max-width: 80ch; line-height: 1.6; overflow-wrap: anywhere; }
 .answer p { margin: 0 0 10px; }
 .answer > :last-child { margin-bottom: 0; }
 .answer h4 { margin: 16px 0 6px; font-size: 14px; font-weight: 600; }
@@ -348,6 +350,7 @@ function advisorMessages(id) {
     const last = i === entries.length - 1;
     const live = last && run && !e.a;
     return `<div class="qa"><div class="qline">${icon("help")}<span class="qtext">${esc(e.q.text)}</span><span class="ts">${esc(stamp(e.q.ts))}</span></div>`
+      + `<div class="ahead"><span class="alabel">Ответ</span><span class="ts">${e.a ? esc(stamp(e.a.ts)) : ""}</span></div>`
       + `<div class="answer">`
       + (e.a ? (e.a.error ? `<div class="receipt err">${esc(e.a.error)}</div>` : "") + md(e.a.text) + ((e.a.tools || []).length ? toolList(e.a.tools, false) : "")
         : live ? `<div class="thinking"><i></i><i></i><i></i><span>${Math.round(Date.now() / 1000 - run.started)} с</span></div>` + (run.tools.length ? toolList(run.tools.slice(-3), true) : "") + (run.text.trim() ? md(run.text) : "")
