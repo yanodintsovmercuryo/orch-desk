@@ -102,26 +102,25 @@ a.chip:hover { background: var(--surface-3); color: var(--text); }
 .dot.off { background: var(--text-3); }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
 .ico { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.msg { display: flex; flex-direction: column; gap: 4px; margin-top: 14px; max-width: 100%; }
-.msg.you { max-width: 80%; }
-.msg.you { align-items: flex-end; margin-left: auto; }
-.msg .bubble { line-height: 1.6; overflow-wrap: anywhere; }
-.msg.bot .bubble { max-width: 80ch; }
-.msg .bubble h4 { margin: 16px 0 6px; font-size: 14px; font-weight: 600; }
-.msg .bubble h4:first-child { margin-top: 0; }
-.msg .bubble li { margin: 3px 0; }
-.msg .bubble ol { margin: 0 0 10px; padding-left: 22px; }
-.msg.you .bubble { background: var(--accent-bg); border-radius: 10px 10px 2px 10px; padding: 8px 12px; }
-.msg.bot .bubble p { margin: 0 0 10px; }
-.msg.bot .bubble > :last-child { margin-bottom: 0; }
-.msg .ts { font-size: 11px; color: var(--text-3); }
-.msg .bubble code { font-family: var(--mono); font-size: 12.5px; background: var(--surface-2); border-radius: 3px; padding: 0 4px; }
-.msg .bubble pre { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 8px; overflow: auto; font-size: 12.5px; }
-.msg .bubble ul { margin: 0 0 10px; padding-left: 20px; }
+.qa { padding: 16px 0; border-top: 1px solid var(--border); }
+.qa:first-child { border-top: 0; padding-top: 4px; }
+.qline { display: flex; align-items: flex-start; gap: 10px; }
+.qline .ico { margin-top: 3px; color: var(--accent); }
+.qline .qtext { flex: 1; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.qline .ts { font-size: 12px; color: var(--text-3); white-space: nowrap; margin-top: 2px; }
+.answer { margin: 10px 0 0 26px; max-width: 80ch; line-height: 1.6; overflow-wrap: anywhere; }
+.answer p { margin: 0 0 10px; }
+.answer > :last-child { margin-bottom: 0; }
+.answer h4 { margin: 16px 0 6px; font-size: 14px; font-weight: 600; }
+.answer ul, .answer ol { margin: 0 0 10px; padding-left: 20px; }
+.answer li { margin: 3px 0; }
+.answer code { font-family: var(--mono); font-size: 12.5px; background: var(--surface-2); border-radius: 3px; padding: 0 4px; }
+.answer pre { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 8px; overflow: auto; font-size: 12.5px; }
+.answer details { margin-top: 8px; }
+.answer details summary { cursor: pointer; font-size: 12px; color: var(--text-3); }
 .adv-tools { margin: 2px 0 0; padding: 0; list-style: none; font-size: 12px; color: var(--text-3); display: flex; flex-wrap: wrap; gap: 4px 12px; }
 .adv-tools li { font-family: var(--mono); }
 .adv-tools .k { margin-right: 6px; color: var(--text-3); opacity: .7; font-family: var(--font); }
-.msg details summary { cursor: pointer; font-size: 12px; color: var(--text-3); }
 .thinking { display: inline-flex; align-items: center; gap: 4px; color: var(--text-3); font-size: 12px; }
 .thinking i { width: 5px; height: 5px; border-radius: 50%; background: var(--text-3); animation: blink 1.2s ease-in-out infinite; }
 .thinking i:nth-child(2) { animation-delay: .2s; }
@@ -341,26 +340,31 @@ function toolList(tools, open) {
 }
 function advisorMessages(id) {
   const st = state.advisor.get(id);
-  if (!st) return `<div class="muted">Загружаю беседу…</div>`;
-  const msgs = st.messages.map(m => m.role === "user"
-    ? `<div class="msg you"><div class="bubble">${md(m.text)}</div><span class="ts">${esc(stamp(m.ts))}</span></div>`
-    : `<div class="msg bot">${m.error ? `<div class="receipt err">${esc(m.error)}</div>` : ""}<div class="bubble">${md(m.text)}</div>`
-      + ((m.tools || []).length ? toolList(m.tools, false) : "") + `<span class="ts">${esc(stamp(m.ts))}</span></div>`).join("");
+  if (!st) return `<div class="muted">Загружаю…</div>`;
+  const entries = [];
+  st.messages.forEach(m => { if (m.role === "user") entries.push({q: m, a: null}); else if (entries.length) entries[entries.length - 1].a = m; });
   const run = st.running;
-  const live = run ? `<div class="msg bot"><div class="thinking"><i></i><i></i><i></i><span>${Math.round(Date.now() / 1000 - run.started)} с</span></div>`
-    + (run.tools.length ? toolList(run.tools.slice(-3), true) : "")
-    + (run.text.trim() ? `<div class="bubble">${md(run.text)}</div>` : "") + `</div>` : "";
-  return msgs + live || `<div class="muted">Спросите что угодно про задачу: код, решение, вопрос оркестратора. Советчик только читает worktree.</div>`;
+  const html = entries.map((e, i) => {
+    const last = i === entries.length - 1;
+    const live = last && run && !e.a;
+    return `<div class="qa"><div class="qline">${icon("help")}<span class="qtext">${esc(e.q.text)}</span><span class="ts">${esc(stamp(e.q.ts))}</span></div>`
+      + `<div class="answer">`
+      + (e.a ? (e.a.error ? `<div class="receipt err">${esc(e.a.error)}</div>` : "") + md(e.a.text) + ((e.a.tools || []).length ? toolList(e.a.tools, false) : "")
+        : live ? `<div class="thinking"><i></i><i></i><i></i><span>${Math.round(Date.now() / 1000 - run.started)} с</span></div>` + (run.tools.length ? toolList(run.tools.slice(-3), true) : "") + (run.text.trim() ? md(run.text) : "")
+        : `<div class="muted">Ответа нет</div>`) + `</div></div>`;
+  }).join("");
+  return html || `<div class="muted">Спросите что угодно про задачу: код, решение, вопрос оркестратора. Советчик только читает worktree.</div>`;
 }
 function advisorPanel(s) {
   const st = state.advisor.get(s.id);
   if (!state.adv.has(s.id) && !(st && (st.messages.length || st.running))) return "";
   const running = !!(st && st.running);
   return `<div class="panel" id="adv" data-stream="${esc(s.id)}"><h3>${icon("terminal")}Вопрос по задаче<span class="chip">${esc((st && st.model) || "sonnet")}</span><span class="grow"></span>`
-    + `<button class="ib" data-advclose="${esc(s.id)}" title="Закрыть беседу и забыть её">${icon("x")}</button></h3>`
+    + `<button class="ib" data-advclose="${esc(s.id)}" title="Закрыть и забыть этот разговор">${icon("x")}</button></h3>`
     + `<div id="adv-thread">${advisorMessages(s.id)}</div>`
-    + `<div class="adv-input"><textarea data-advtext="${esc(s.id)}" placeholder="Продолжить разговор с советником" ${running ? "disabled" : ""}>${esc(state.drafts.get("adv:" + s.id) || "")}</textarea>`
-    + `<button class="send" data-advsend="${esc(s.id)}" ${running ? "disabled" : ""}>${icon("send")}${running ? "Отвечает…" : "Спросить"}</button></div></div>`;
+    + `<div class="composer" style="margin-top:12px"><textarea data-advtext="${esc(s.id)}" placeholder="Уточнить вопрос или спросить ещё" ${running ? "disabled" : ""}>${esc(state.drafts.get("adv:" + s.id) || "")}</textarea>`
+    + `<div class="cbar"><span class="receipt">Советчик только читает worktree · ⌘↵</span><span class="grow"></span>`
+    + `<button class="send" data-advsend="${esc(s.id)}" ${running ? "disabled" : ""}>${icon("send")}${running ? "Отвечает…" : "Спросить"}</button></div></div></div>`;
 }
 async function loadAdvisor(id) {
   clearTimeout(state.advTimer);
@@ -558,6 +562,7 @@ document.addEventListener("change", async e => {
   render(true);
 });
 document.addEventListener("toggle", e => { const k = e.target.dataset && e.target.dataset.key; if (k) { e.target.open ? state.open.add(k) : state.open.delete(k); } }, true);
+document.addEventListener("keydown", e => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && e.target.dataset && e.target.dataset.advtext) { const b = document.querySelector("[data-advsend]"); if (b && !b.disabled) b.click(); } });
 window.addEventListener("hashchange", () => { window.scrollTo(0, 0); render(true); });
 
 /* ---- epic statistics on hover, after half a second ---- */
