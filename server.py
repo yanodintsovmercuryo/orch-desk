@@ -9,9 +9,10 @@ import sys
 import threading
 import time
 import traceback
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from desk import askwin, deliver, epics, links, terminal, tsoq, uploads, view
+from desk import advisor, deliver, epics, links, state, terminal, tsoq, uploads, view, workspace
 
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("DESK_PORT", "8800"))
@@ -107,6 +108,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, _state())
             except Exception:
                 return self._send(500, {"error": traceback.format_exc(limit=5)})
+        if route == "/api/advisor":
+            query = urllib.parse.parse_qs(self.path.split("?", 1)[1] if "?" in self.path else "")
+            stream = (query.get("stream") or [""])[0]
+            if not stream.replace("-", "").isalnum():
+                return self._send(400, {"error": "unknown stream"})
+            return self._send(200, advisor.status(stream))
         if route.startswith("/api/question/"):
             try:
                 return self._send(200, tsoq.question(route.rsplit("/", 1)[1]))
@@ -162,10 +169,24 @@ class Handler(BaseHTTPRequestHandler):
                 deliver.log(REPLIES, {"stream": stream, "kind": "terminal", "ok": True,
                                       "text": f"[терминал] {stream}: «{result['picked']}»" + (f" · {text}" if text else "")})
                 return self._send(200, result)
-            if self.path == "/api/ask-window":
+            if self.path in ("/api/workspace/refresh", "/api/workspace/up"):
                 stream = body.get("stream", "")
                 repo = view.stream_repo(stream) if stream.replace("-", "").isalnum() else ""
-                return self._send(200, askwin.open_window(stream, repo, str(body.get("text") or "")))
+                if not repo:
+                    return self._send(400, {"error": "unknown stream"})
+                if self.path.endswith("/up"):
+                    workspace.app_up(repo, stream)
+                return self._send(200, workspace.status(repo, force=self.path.endswith("/refresh")))
+            if self.path in ("/api/advisor", "/api/advisor/reset"):
+                stream = body.get("stream", "")
+                row = next((r for r in _state()["streams"] if r["id"] == stream), None)
+                if not row:
+                    return self._send(400, {"error": "unknown stream"})
+                if self.path.endswith("/reset"):
+                    return self._send(200, advisor.reset(stream))
+                sdir = os.path.join(state.state_root(), row["orchestrator"], "streams", stream)
+                return self._send(200, advisor.ask(stream, body.get("question", ""), body.get("model", "sonnet"),
+                                                   row, sdir, fresh=bool(body.get("fresh"))))
             if self.path != "/api/reply":
                 return self._send(404, {"error": "not found"})
             session_id, stream, text = body.get("session_id", ""), body.get("stream", ""), body.get("text", "")

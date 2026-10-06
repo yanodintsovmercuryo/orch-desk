@@ -4,7 +4,7 @@ import os
 import re
 from concurrent.futures import ThreadPoolExecutor
 
-from . import deliver, links, state, terminal, tsoq
+from . import deliver, links, state, terminal, tsoq, workspace
 
 CLOSED_LIMIT = 100
 TASK_ID = re.compile(r"\b[A-Z][A-Z0-9]+-\d+\b")
@@ -63,8 +63,11 @@ def build(root=None):
         idx, moved, inferred = _stage(st, lk)
         closed = idx == len(state.ORDERED) - 1
         prompt = None if closed else terminal.waiting_prompt(st.header.get("repository", ""))
+        contour = {} if closed else workspace.status(st.header.get("repository", ""))
+        if contour.get("app_up"):
+            contour["app_up"]["tail"] = workspace.log_tail(contour["app_up"]["log"])
         return {
-            "prompt": prompt, "prepared": st.prepared,
+            "prompt": prompt, "prepared": st.prepared, "workspace": contour,
             "id": st.id, "orchestrator": orch_name, "header": st.header, "derived": st.derived,
             "error": st.error, "note": st.note,
             "progress": {"index": idx, "total": len(state.ORDERED), "intent_moved": moved, "inferred": inferred},

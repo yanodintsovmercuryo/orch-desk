@@ -66,24 +66,43 @@ details[open] > summary .chev { transform: rotate(45deg); }
 .muted { color: var(--text-3); }
 .empty { padding: 16px 12px; color: var(--text-3); }
 .ico { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.back { display: inline-flex; align-items: center; gap: 6px; margin: 18px 0 0; color: var(--text-3); font-size: 13px; }
-.back:hover { color: var(--text); }
-.head { margin: 14px 0 0; }
-.head .idline { font-family: var(--mono); font-size: 12px; color: var(--text-3); letter-spacing: .02em; }
-.head h1 { font-size: 17px; line-height: 1.45; margin: 4px 0 8px; font-weight: 600; max-width: 78ch; letter-spacing: -.003em; }
-.facts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; color: var(--text-3); font-size: 12.5px; }
-.facts > * { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.facts a:hover { color: var(--accent); }
-.facts .ico { width: 14px; height: 14px; }
-.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
-.dot.pulse { animation: pulse 2s ease-in-out infinite; }
-.sec { margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--border); }
-.sec > h3 { margin: 0 0 10px; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-3); font-weight: 600; }
+.crumbs { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.crumbs a { color: var(--text-2); font-weight: 600; }
+.crumbs a:hover { color: var(--accent); }
+.crumbs .sep { color: var(--text-3); }
+.crumbs .cur { font-family: var(--mono); font-size: 13px; color: var(--text); }
+.page-title { margin: 22px 0 4px; }
+.page-title h1 { font-size: 20px; line-height: 1.35; margin: 0; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.chip .ico { width: 14px; height: 14px; }
+.chip.st { background: var(--accent-bg); color: var(--accent); }
+a.chip:hover { background: var(--surface-3); color: var(--text); }
+.panel { border: 1px solid var(--border); border-radius: 4px; background: var(--surface); padding: 12px; margin-top: 12px; }
+.panel h3 { margin: 0 0 8px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.panel h3 .grow { flex: 1; }
 .milestones { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin-top: 8px; }
 .milestones div { font-size: 12px; color: var(--text-3); line-height: 1.35; }
 .milestones div.on { color: var(--text-2); }
 .milestones div.now { color: var(--text); font-weight: 600; }
 .milestones small { display: block; font-weight: 400; color: var(--text-3); font-size: 11px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
+.links-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 16px; }
+.links-list a { display: flex; align-items: center; gap: 8px; padding: 4px 0; color: var(--text-2); min-width: 0; }
+.links-list a span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.links-list a:hover { color: var(--accent); }
+.links-list b { font-weight: 500; color: var(--text); min-width: 84px; }
+.ico { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.adv-msg { margin-top: 10px; }
+.adv-who { font-size: 12px; color: var(--text-3); margin-bottom: 2px; }
+.adv-msg.you .body { background: var(--surface-2); border-radius: 6px; padding: 8px 10px; }
+.adv-msg.bot .body p { margin: 0 0 8px; }
+.adv-msg .body code { font-family: var(--mono); font-size: 12.5px; background: var(--surface-2); border-radius: 3px; padding: 0 4px; }
+.adv-msg .body pre { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 8px; overflow: auto; font-size: 12.5px; }
+.adv-msg .body ul { margin: 0 0 8px; padding-left: 20px; }
+.adv-tools { margin: 4px 0 0; padding: 0; list-style: none; font-size: 12px; color: var(--text-3); }
+.adv-input { display: flex; gap: 8px; align-items: flex-end; margin-top: 10px; }
+.adv-input textarea { margin: 0; min-height: 44px; }
+.pre { white-space: pre-wrap; font-family: var(--mono); font-size: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 8px; max-height: 220px; overflow: auto; margin-top: 8px; }
 .composer { border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
 .composer:focus-within { border-color: var(--accent); }
 .composer textarea { display: block; margin: 0; min-height: 76px; border: 0; background: transparent; border-radius: 6px 6px 0 0; outline: none; }
@@ -129,7 +148,7 @@ textarea:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
 </style>
 </head>
 <body>
-<header><span class="brand">Desk</span><span class="upd" id="upd"></span><span class="grow"></span><span id="top"></span></header>
+<header><span class="crumbs" id="crumbs"></span><span class="upd" id="upd"></span><span class="grow"></span><span id="top"></span></header>
 <div class="wrap" id="app"></div>
 <script>
 const STAGES = {"launched": "Запуск", "spec-drafted": "Спецификация", "plan-passed": "План", "gate-round": "Ревью",
@@ -141,12 +160,12 @@ const ICONS = {
   help: '<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
   pr: '<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M6 9v12"/>',
   link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
-  check: '<path d="M20 6 9 17l-5-5"/>', x: '<path d="M18 6 6 18M6 6l12 12"/>', clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>'
+  play: '<path d="m6 3 14 9-14 9z"/>', refresh: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>', globe: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"/>', check: '<path d="M20 6 9 17l-5-5"/>', x: '<path d="M18 6 6 18M6 6l12 12"/>', clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>'
 };
 const icon = name => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ""}</svg>`;
 const EPIC_TIP_DELAY = 500;
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
-const state = {data: null, key: "", details: new Map(), open: new Set(), picks: new Map(), drafts: new Map(), receipts: new Map(), images: new Map()};
+const state = {advisor: new Map(), adv: new Set(), busy: new Map(), data: null, key: "", details: new Map(), open: new Set(), picks: new Map(), drafts: new Map(), receipts: new Map(), images: new Map()};
 
 function short(ts) {
   if (!ts) return "—";
@@ -157,12 +176,30 @@ function short(ts) {
   return h < 48 ? `${h} ч` : `${Math.round(h / 24)} дн`;
 }
 function when(ts) {
-  const d = new Date(ts);
+  const d = typeof ts === "number" ? new Date(ts * 1000) : new Date(ts);
   return isNaN(d) ? "" : d.toLocaleString("ru-RU", {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23"});
 }
 async function post(path, body) {
   const res = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
   return {res, data: await res.json().catch(() => ({}))};
+}
+
+
+/* a small markdown reader for the advisor's answers */
+function md(text) {
+  const blocks = String(text || "").split(/```/);
+  return blocks.map((b, i) => {
+    if (i % 2) return `<pre>${esc(b.replace(/^\w*\n/, "").replace(/\n$/, ""))}</pre>`;
+    const inl = t => esc(t).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+      .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+    return b.split(/\n{2,}/).map(par => {
+      const lines = par.split("\n").filter(l => l.trim());
+      if (!lines.length) return "";
+      if (lines.every(l => /^\s*[-*] /.test(l))) return `<ul>${lines.map(l => `<li>${inl(l.replace(/^\s*[-*] /, ""))}</li>`).join("")}</ul>`;
+      return `<p>${lines.map(inl).join("<br>")}</p>`;
+    }).join("");
+  }).join("");
 }
 
 /* ---- epics: finished and empty ones are history, not a task list ---- */
@@ -239,38 +276,97 @@ function loadDetails(qs) {
 }
 
 /* ---- one task ---- */
+const APP = {running: "запущен", stopped: "остановлен", partial: "частично", unknown: "неизвестно"};
+function standPanel(s) {
+  const w = s.workspace || {};
+  if (!w.available) return "";
+  const info = w.info || {}, web = info.web || {}, st = info.status || {};
+  const up = w.app_up, starting = up && up.running, app = st.application, b = state.busy.get(s.id) || "";
+  const row = (name, url) => url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${icon("globe")}<b>${esc(name)}</b><span>${esc(url.replace(/^https?:\/\//, ""))}</span></a>` : "";
+  const body = w.loading ? `<div class="muted">Читаю task workspace:info…</div>` : w.error ? `<div class="receipt err">${esc(w.error)}</div>`
+    : `<div class="links-list">${row("Console", web.console)}${row("Admin", web.admin)}${row("API", web.api)}${row("RabbitScout", web.rabbitscout)}${row("DbGate", web.dbgate)}${row("ObjectStore", web.objectstore)}</div>`
+      + `<div class="receipt" style="margin-top:6px">Инфраструктура: ${esc(APP[st.infrastructure] || st.infrastructure || "—")} · проверено ${esc(when(w.checked))}</div>`;
+  return `<div class="panel"><h3>Стенд <span class="chip ${app === "running" ? "ok" : ""}">${starting ? "запускается" : esc(APP[app] || app || "—")}</span><span class="grow"></span>`
+    + `<button class="ib" data-ws="up" data-stream="${esc(s.id)}" ${b || starting || app === "running" ? "disabled" : ""} title="Запустить task app:up">${icon("play")}</button>`
+    + `<button class="ib" data-ws="refresh" data-stream="${esc(s.id)}" ${b ? "disabled" : ""} title="Обновить состояние стенда">${icon("refresh")}</button></h3>`
+    + body + (up ? `<details data-key="${esc(s.id + ":appup")}" ${state.open.has(s.id + ":appup") ? "open" : ""}><summary class="receipt" style="cursor:pointer;margin-top:8px">Вывод app:up${up.running ? " (идёт)" : " · код " + esc(up.exit_code)}</summary><div class="pre">${esc(up.tail || "")}</div></details>` : "") + `</div>`;
+}
+
+function advisorMessages(id) {
+  const st = state.advisor.get(id);
+  if (!st) return `<div class="muted">Загружаю беседу…</div>`;
+  const msgs = st.messages.map(m => m.role === "user"
+    ? `<div class="adv-msg you"><div class="adv-who">Вы · ${esc(when(m.ts))}${m.model ? " · " + esc(m.model) : ""}</div><div class="body">${md(m.text)}</div></div>`
+    : `<div class="adv-msg bot"><div class="adv-who">Советчик · ${esc(when(m.ts))}</div>${m.error ? `<div class="receipt err">${esc(m.error)}</div>` : ""}<div class="body">${md(m.text)}</div>`
+      + ((m.tools || []).length ? `<details><summary class="receipt" style="cursor:pointer">что читал · ${m.tools.length}</summary><ul class="adv-tools">${m.tools.map(t => `<li>${esc(t)}</li>`).join("")}</ul></details>` : "") + `</div>`).join("");
+  const run = st.running;
+  const live = run ? `<div class="adv-msg bot"><div class="adv-who">Советчик думает · ${Math.round(Date.now() / 1000 - run.started)} с</div>`
+    + (run.tools.length ? `<ul class="adv-tools">${run.tools.slice(-4).map(t => `<li>${esc(t)}</li>`).join("")}</ul>` : "")
+    + (run.text.trim() ? `<div class="body">${md(run.text)}</div>` : "") + `</div>` : "";
+  return msgs + live || `<div class="muted">Спросите что угодно про задачу: код, решение, вопрос оркестратора. Советчик только читает worktree.</div>`;
+}
+function advisorPanel(s) {
+  const st = state.advisor.get(s.id);
+  if (!state.adv.has(s.id) && !(st && (st.messages.length || st.running))) return "";
+  const running = !!(st && st.running);
+  return `<div class="panel" id="adv" data-stream="${esc(s.id)}"><h3>${icon("terminal")}Вопрос по задаче<span class="chip">${esc((st && st.model) || "sonnet")}</span><span class="grow"></span>`
+    + `<button class="ib" data-advclose="${esc(s.id)}" title="Закрыть беседу и забыть её">${icon("x")}</button></h3>`
+    + `<div id="adv-thread">${advisorMessages(s.id)}</div>`
+    + `<div class="adv-input"><textarea data-advtext="${esc(s.id)}" placeholder="Продолжить разговор с советником" ${running ? "disabled" : ""}>${esc(state.drafts.get("adv:" + s.id) || "")}</textarea>`
+    + `<button class="send" data-advsend="${esc(s.id)}" ${running ? "disabled" : ""}>${icon("send")}${running ? "Отвечает…" : "Спросить"}</button></div></div>`;
+}
+async function loadAdvisor(id) {
+  clearTimeout(state.advTimer);
+  try {
+    const res = await fetch("/api/advisor?stream=" + encodeURIComponent(id), {cache: "no-store"});
+    const data = await res.json();
+    if (res.ok) state.advisor.set(id, data);
+  } catch (e) { /* retried on the next tick */ }
+  const st = state.advisor.get(id) || {};
+  if (st.running) state.advTimer = setTimeout(() => loadAdvisor(id), 1000);
+  const panel = document.getElementById("adv");
+  if (!panel || panel.dataset.stream !== id) return;
+  document.getElementById("adv-thread").innerHTML = advisorMessages(id);
+  const btn = panel.querySelector("[data-advsend]"), ta = panel.querySelector("textarea");
+  btn.disabled = !!st.running; ta.disabled = !!st.running;
+  btn.lastChild.textContent = st.running ? "Отвечает…" : "Спросить";
+  if (!st.running && state.advRan === id) { state.advRan = ""; ta.focus(); }
+  if (st.running) state.advRan = id;
+}
+
 function taskView(d, id) {
   const s = d.streams.find(x => x.id === id);
-  const back = `<a class="back" href="#/">${icon("back")}Все задачи</a>`;
-  if (!s) return back + `<div class="empty">Задача ${esc(id)} не найдена</div>`;
+  if (!s) return `<div class="empty">Задача ${esc(id)} не найдена</div>`;
   const lk = s.links || {}, pr = lk.pr || {}, t = (lk.linear || {}).title || s.header.title || s.id;
   const orch = d.orchestrators.find(o => o.name === s.orchestrator) || {};
   const ms = s.milestones || [];
   const key = "reply:" + s.id;
   const imgs = state.images.get(key) || [];
   const rc = state.receipts.get(key) || {};
-  const facts = [
-    `<span title="${esc(stageLabel(s))}"><span class="dot ${s.closed ? "" : "pulse"}"></span>${esc(stageLabel(s))}</span>`,
-    lk.linear && lk.linear.url ? `<a href="${esc(lk.linear.url)}" target="_blank" rel="noopener">${icon("link")}Linear${lk.linear.state ? " · " + esc(lk.linear.state) : ""}</a>` : "",
-    pr.url ? `<a href="${esc(pr.url)}" target="_blank" rel="noopener">${icon("pr")}#${esc(pr.number)}${pr.state ? " · " + esc(pr.state.toLowerCase()) : ""}</a>` : "",
-    s.last_ts ? `<span title="последнее событие">${icon("clock")}${short(s.last_ts)}</span>` : ""
-  ].filter(Boolean).join("");
   const idx = s.progress.index;
-  return back
-    + `<div class="head"><div class="idline">${esc(s.id)}</div><h1>${esc(t)}</h1><div class="facts">${facts}</div></div>`
-    + `<div class="sec"><div class="stage"><span class="road big">${state.data.checkpoints.map((c, i) => `<i class="${i < idx || (i === idx && s.closed) ? "done" : i === idx ? "now" : ""}"></i>`).join("")}</span></div>`
+  const chips = [
+    `<span class="chip st">${esc(stageLabel(s))}</span>`,
+    lk.linear && lk.linear.url ? `<a class="chip" href="${esc(lk.linear.url)}" target="_blank" rel="noopener">${icon("link")}Linear${lk.linear.state ? " · " + esc(lk.linear.state) : ""}</a>` : "",
+    pr.url ? `<a class="chip" href="${esc(pr.url)}" target="_blank" rel="noopener">${icon("pr")}#${esc(pr.number)}${pr.state ? " · " + esc(pr.state.toLowerCase()) : ""}</a>` : "",
+    s.last_ts ? `<span class="chip">${icon("clock")}${short(s.last_ts)}</span>` : "",
+    s.progress.inferred ? `<span class="chip" title="Журнала нет: этап определён по PR">этап по PR</span>` : ""
+  ].join("");
+  return `<div class="page-title"><h1 title="${esc(t)}">${esc(t)}</h1><div class="chips">${chips}</div></div>`
+    + `<div class="panel"><div class="stage"><span class="road">${state.data.checkpoints.map((c, i) => `<i class="${i < idx || (i === idx && s.closed) ? "done" : i === idx ? "now" : ""}"></i>`).join("")}</span></div>`
     + `<div class="milestones">${state.data.checkpoints.map((c, i) => `<div class="${i === idx ? "now" : ms[i] && ms[i].ts ? "on" : ""}">${esc(STAGES[c] || c)}${ms[i] && ms[i].ts ? `<small>${when(ms[i].ts)}</small>` : ""}</div>`).join("")}</div></div>`
-    + (s.prompt ? `<div class="sec"><h3>Ждёт ответа в окне сессии</h3>${promptPanel(s, s.prompt)}</div>` : "")
-    + ((s.questions || []).length ? `<div class="sec"><h3>Вопросы к вам</h3>${s.questions.map(questionCard).join("")}</div>` : "")
-    + `<div class="sec"><h3>Сообщение</h3><div class="composer">`
+    + (s.prompt ? promptPanel(s, s.prompt) : "")
+    + (s.questions || []).map(questionCard).join("")
+    + standPanel(s)
+    + `<div class="panel"><h3>Сообщение</h3><div class="composer">`
     + `<textarea data-reply="${esc(s.id)}" placeholder="Оркестратору по ${esc(s.id)}: ответ, комментарий или вопрос по задаче">${esc(state.drafts.get(key) || "")}</textarea>`
     + `<div class="cbar"><label class="ib" title="Прикрепить картинку">${icon("image")}<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden data-attach="${esc(s.id)}"></label>`
     + `<button class="ib" data-note="${esc(s.id)}" data-session="${esc(orch.session_id || "")}" title="Отправить как комментарий: оркестратор учтёт, отвечать не обязан">${icon("comment")}</button>`
-    + `<button class="ib" data-askwin="${esc(s.id)}" title="Задать как вопрос в новом окне Claude в worktree задачи (только чтение)">${icon("terminal")}</button>`
+    + `<button class="ib" data-askadv="${esc(s.id)}" title="Задать как вопрос советнику: ответ появится ниже, беседу можно продолжить">${icon("terminal")}</button>`
     + imgs.map(p => `<span class="attached">${icon("image")}${esc(p.split("/").pop())}</span>`).join("")
     + `<span class="receipt ${rc.err ? "err" : ""}" style="margin-left:8px">${esc(rc.text || "")}</span><span class="grow"></span>`
     + `<button class="send" data-send="${esc(s.id)}" data-session="${esc(orch.session_id || "")}" title="Ответ оркестратору">${icon("send")}Ответить</button></div></div></div>`
-    + `<div class="sec"><h3>Журнал</h3><ul class="journal">${(s.events || []).slice().reverse().map(e =>
+    + advisorPanel(s)
+    + `<div class="panel"><h3>Журнал</h3><ul class="journal">${(s.events || []).slice().reverse().map(e =>
         `<li><span class="d">${when(e.ts)}</span><span class="d">${esc(e.checkpoint ? (STAGES[e.checkpoint] || e.checkpoint) + " " + e.direction : "заметка")}</span><span>${esc(e.text)}</span></li>`).join("") || `<li class="muted">Записей нет</li>`}</ul></div>`;
 }
 /* A question on the stream's own screen (outside tso ask): a held cross-session message or a menu of the session. */
@@ -302,6 +398,10 @@ function render(force) {
   state.key = key;
   const qs = [...(d.general_questions || []), ...d.streams.flatMap(s => s.questions || [])];
   loadDetails(qs);
+  if (route) { const rid = decodeURIComponent(route[1]); if (!state.advisor.has(rid)) { state.advisor.set(rid, null); loadAdvisor(rid).then(() => { const st = state.advisor.get(rid); if (st && (st.messages.length || st.running)) render(true); }); } }
+  document.getElementById("crumbs").innerHTML = route
+    ? `<a class="brand" href="#/" title="Все задачи">Desk</a><span class="sep">/</span><span class="cur">${esc(decodeURIComponent(route[1]))}</span>`
+    : `<span class="brand">Desk</span>`;
   document.getElementById("app").innerHTML = route ? taskView(d, decodeURIComponent(route[1])) : homeView(d);
   const nq = qs.filter(q => q.status === "open").length;
   const under = (d.orchestrators[0] || {}).under_tso;
@@ -344,14 +444,38 @@ document.addEventListener("click", async e => {
     if (res.ok) state.drafts.delete(key);
     return render(true);
   }
-  const win = t.closest("[data-askwin]");
-  if (win) {
-    const sid = win.dataset.askwin, key = "reply:" + sid, text = (state.drafts.get(key) || "").trim();
+  const adv = t.closest("[data-askadv]");
+  if (adv) {
+    const sid = adv.dataset.askadv, key = "reply:" + sid, text = (state.drafts.get(key) || "").trim();
     if (!text) { state.receipts.set(key, {text: "Сначала напишите вопрос", err: true}); return render(true); }
-    const {res, data} = await post("/api/ask-window", {stream: sid, text});
-    state.receipts.set(key, {text: res.ok ? "Новое окно открыто в worktree задачи" : "Не открылось: " + (data.error || res.status), err: !res.ok});
-    if (res.ok) state.drafts.delete(key);
+    const {res, data} = await post("/api/advisor", {stream: sid, question: text, model: "sonnet"});
+    if (!res.ok) { state.receipts.set(key, {text: "Не принято: " + (data.error || res.status), err: true}); return render(true); }
+    state.drafts.delete(key); state.receipts.delete(key); state.adv.add(sid);
+    render(true); await loadAdvisor(sid);
+    const p = document.getElementById("adv"); if (p) p.scrollIntoView({behavior: "smooth", block: "nearest"});
+    return;
+  }
+  const advsend = t.closest("[data-advsend]");
+  if (advsend && !advsend.disabled) {
+    const sid = advsend.dataset.advsend, text = (state.drafts.get("adv:" + sid) || "").trim();
+    if (!text) return;
+    const {res} = await post("/api/advisor", {stream: sid, question: text, model: (state.advisor.get(sid) || {}).model || "sonnet"});
+    if (res.ok) { state.drafts.delete("adv:" + sid); const ta = document.querySelector(`[data-advtext="${sid}"]`); if (ta) ta.value = ""; await loadAdvisor(sid); }
+    return;
+  }
+  const advclose = t.closest("[data-advclose]");
+  if (advclose) {
+    const sid = advclose.dataset.advclose;
+    await post("/api/advisor/reset", {stream: sid});
+    state.advisor.delete(sid); state.adv.delete(sid); state.drafts.delete("adv:" + sid);
     return render(true);
+  }
+  const ws = t.closest("[data-ws]");
+  if (ws && !ws.disabled) {
+    const sid = ws.dataset.stream;
+    state.busy.set(sid, ws.dataset.ws); render(true);
+    await post("/api/workspace/" + ws.dataset.ws, {stream: sid});
+    state.busy.delete(sid); await load(); return render(true);
   }
   const term = t.closest("[data-term]");
   if (term) { await post("/api/terminal", {stream: term.dataset.term, key: term.dataset.key}); await load(); return render(true); }
@@ -374,6 +498,7 @@ document.addEventListener("input", e => {
     if (b) b.disabled = !(t.value.trim() || (state.picks.get(t.dataset.qtext) || {}).option);
   }
   if (t.dataset.reply) state.drafts.set("reply:" + t.dataset.reply, t.value);
+  if (t.dataset.advtext) state.drafts.set("adv:" + t.dataset.advtext, t.value);
 });
 document.addEventListener("change", async e => {
   const t = e.target;
