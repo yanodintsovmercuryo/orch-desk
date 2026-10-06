@@ -93,10 +93,11 @@ a.chip:hover { background: var(--surface-3); color: var(--text); }
 .stand-head h3 { margin: 0; }
 .stand-head .state { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); font-size: 13px; }
 .pills { display: inline-flex; gap: 4px; margin-left: 4px; padding-left: 12px; border-left: 1px solid var(--border); }
-.pill { display: inline-flex; align-items: center; height: 28px; padding: 0 6px; border-radius: 4px; color: var(--text-3); overflow: hidden; }
-.pill .nm { max-width: 0; opacity: 0; margin-left: 0; white-space: nowrap; transition: max-width .18s ease, opacity .12s ease, margin-left .18s ease; }
+.pill { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 4px; color: var(--text-3); transition: background-color .12s ease, color .12s ease; }
 .pill:hover { background: var(--surface-2); color: var(--text); }
-.pill:hover .nm { max-width: 100px; opacity: 1; margin-left: 6px; }
+/* The name floats under the icon: nothing around it moves, so the pointer never loses the button. */
+.pill .nm { position: absolute; top: 100%; left: 50%; z-index: 5; padding: 2px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface-3); color: var(--text); font-size: 12px; white-space: nowrap; pointer-events: none; opacity: 0; transform: translate(-50%, 2px); transition: opacity .12s ease, transform .12s ease; }
+.pill:hover .nm { opacity: 1; transform: translate(-50%, 6px); transition-delay: .12s; }
 .dot.ok { background: var(--ok); }
 .dot.off { background: var(--text-3); }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
