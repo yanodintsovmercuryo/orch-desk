@@ -65,6 +65,7 @@ details[open] > summary .chev { transform: rotate(45deg); }
 .qicon .ico { width: 14px; height: 14px; }
 .muted { color: var(--text-3); }
 .empty { padding: 16px 12px; color: var(--text-3); }
+.ico.fill { fill: currentColor; stroke: none; }
 .ico { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .crumbs { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .crumbs a { color: var(--text-2); font-weight: 600; }
@@ -85,12 +86,17 @@ a.chip:hover { background: var(--surface-3); color: var(--text); }
 .milestones div.on { color: var(--text-2); }
 .milestones div.now { color: var(--text); font-weight: 600; }
 .milestones small { display: block; font-weight: 400; color: var(--text-3); font-size: 11px; }
+.stand-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.stand-head h3 { margin: 0; }
+.stand-head .state { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); font-size: 13px; }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface-2); color: var(--text); }
+.pill:hover { border-color: var(--accent); color: var(--accent); }
+.pill .ico { color: var(--text-3); }
+.pill:hover .ico { color: var(--accent); }
+.dot.ok { background: var(--ok); }
+.dot.off { background: var(--text-3); }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
-.links-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 16px; }
-.links-list a { display: flex; align-items: center; gap: 8px; padding: 4px 0; color: var(--text-2); min-width: 0; }
-.links-list a span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.links-list a:hover { color: var(--accent); }
-.links-list b { font-weight: 500; color: var(--text); min-width: 84px; }
 .ico { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .adv-msg { margin-top: 10px; }
 .adv-who { font-size: 12px; color: var(--text-3); margin-bottom: 2px; }
@@ -160,8 +166,10 @@ const ICONS = {
   help: '<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
   pr: '<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M6 9v12"/>',
   link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
-  play: '<path d="m6 3 14 9-14 9z"/>', refresh: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>', globe: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"/>', check: '<path d="M20 6 9 17l-5-5"/>', x: '<path d="M18 6 6 18M6 6l12 12"/>', clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>'
+  layout: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>', shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', code: '<path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/>', layers: '<path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/>', database: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/>', box: '<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>', play: '<path d="m6 3 14 9-14 9z"/>', refresh: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>', globe: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"/>', check: '<path d="M20 6 9 17l-5-5"/>', x: '<path d="M18 6 6 18M6 6l12 12"/>', clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>'
 };
+const LINEAR = 'M2.886 4.18A11.982 11.982 0 0 1 11.99 0C18.624 0 24 5.376 24 12.009c0 3.64-1.62 6.903-4.18 9.105L2.887 4.18ZM1.817 5.626l16.556 16.556c-.524.33-1.075.62-1.65.866L.951 7.277c.247-.575.537-1.126.866-1.65ZM.322 9.163l14.515 14.515c-.71.172-1.443.282-2.195.322L0 11.358a12 12 0 0 1 .322-2.195Zm-.17 4.862 9.823 9.824a12.02 12.02 0 0 1-9.824-9.824Z';
+const linearIcon = `<svg class="ico fill" viewBox="0 0 24 24" aria-hidden="true"><path d="${LINEAR}"/></svg>`;
 const icon = name => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ""}</svg>`;
 const EPIC_TIP_DELAY = 500;
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
@@ -233,7 +241,7 @@ function road(s) {
 function stageLabel(s) {
   const idx = s.progress.index;
   if (s.prompt) return "ждёт ввода";
-  return idx >= 0 ? (STAGES[state.data.checkpoints[idx]] || "") + (s.progress.inferred ? "*" : "") : "—";
+  return idx >= 0 ? (STAGES[state.data.checkpoints[idx]] || "") + (s.progress.inferred ? " · оценка" : "") : "—";
 }
 function taskRow(s) {
   const t = (s.links.linear || {}).title || s.header.title || s.id;
@@ -282,13 +290,14 @@ function standPanel(s) {
   if (!w.available) return "";
   const info = w.info || {}, web = info.web || {}, st = info.status || {};
   const up = w.app_up, starting = up && up.running, app = st.application, b = state.busy.get(s.id) || "";
-  const row = (name, url) => url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${icon("globe")}<b>${esc(name)}</b><span>${esc(url.replace(/^https?:\/\//, ""))}</span></a>` : "";
+  const pill = (name, ico, url) => url ? `<a class="pill" href="${esc(url)}" target="_blank" rel="noopener" title="${esc(url.replace(/^https?:\/\//, ""))}">${icon(ico)}${esc(name)}</a>` : "";
+  const label = starting ? "запускается" : APP[app] || app || "неизвестно";
   const body = w.loading ? `<div class="muted">Читаю task workspace:info…</div>` : w.error ? `<div class="receipt err">${esc(w.error)}</div>`
-    : `<div class="links-list">${row("Console", web.console)}${row("Admin", web.admin)}${row("API", web.api)}${row("RabbitScout", web.rabbitscout)}${row("DbGate", web.dbgate)}${row("ObjectStore", web.objectstore)}</div>`
-      + `<div class="receipt" style="margin-top:6px">Инфраструктура: ${esc(APP[st.infrastructure] || st.infrastructure || "—")} · проверено ${esc(when(w.checked))}</div>`;
-  return `<div class="panel"><h3>Стенд <span class="chip ${app === "running" ? "ok" : ""}">${starting ? "запускается" : esc(APP[app] || app || "—")}</span><span class="grow"></span>`
+    : `<div class="pills">${pill("Console", "layout", web.console)}${pill("Admin", "shield", web.admin)}${pill("API", "code", web.api)}${pill("RabbitScout", "layers", web.rabbitscout)}${pill("DbGate", "database", web.dbgate)}${pill("ObjectStore", "box", web.objectstore)}</div>`;
+  return `<div class="panel"><div class="stand-head"><h3>Стенд</h3><span class="state"><span class="dot ${app === "running" ? "ok" : starting ? "pulse" : "off"}"></span>${esc(label)}</span>`
+    + (w.checked ? `<span class="receipt">проверено ${esc(when(w.checked))}</span>` : "") + `<span class="grow"></span>`
     + `<button class="ib" data-ws="up" data-stream="${esc(s.id)}" ${b || starting || app === "running" ? "disabled" : ""} title="Запустить task app:up">${icon("play")}</button>`
-    + `<button class="ib" data-ws="refresh" data-stream="${esc(s.id)}" ${b ? "disabled" : ""} title="Обновить состояние стенда">${icon("refresh")}</button></h3>`
+    + `<button class="ib" data-ws="refresh" data-stream="${esc(s.id)}" ${b ? "disabled" : ""} title="Обновить состояние стенда">${icon("refresh")}</button></div>`
     + body + (up ? `<details data-key="${esc(s.id + ":appup")}" ${state.open.has(s.id + ":appup") ? "open" : ""}><summary class="receipt" style="cursor:pointer;margin-top:8px">Вывод app:up${up.running ? " (идёт)" : " · код " + esc(up.exit_code)}</summary><div class="pre">${esc(up.tail || "")}</div></details>` : "") + `</div>`;
 }
 
@@ -345,11 +354,11 @@ function taskView(d, id) {
   const rc = state.receipts.get(key) || {};
   const idx = s.progress.index;
   const chips = [
-    `<span class="chip st">${esc(stageLabel(s))}</span>`,
-    lk.linear && lk.linear.url ? `<a class="chip" href="${esc(lk.linear.url)}" target="_blank" rel="noopener">${icon("link")}Linear${lk.linear.state ? " · " + esc(lk.linear.state) : ""}</a>` : "",
+    `<span class="chip st" ${s.progress.inferred ? 'title="В журнале задачи нет записей, поэтому этап оценён по её PR: нет PR — план, открыт — публикация, влит — мерж"' : ""}>${esc(stageLabel(s))}</span>`,
+    lk.linear && lk.linear.url ? `<a class="chip" href="${esc(lk.linear.url)}" target="_blank" rel="noopener" title="Открыть в Linear">${linearIcon}${esc(lk.linear.state || "")}</a>` : "",
     pr.url ? `<a class="chip" href="${esc(pr.url)}" target="_blank" rel="noopener">${icon("pr")}#${esc(pr.number)}${pr.state ? " · " + esc(pr.state.toLowerCase()) : ""}</a>` : "",
     s.last_ts ? `<span class="chip">${icon("clock")}${short(s.last_ts)}</span>` : "",
-    s.progress.inferred ? `<span class="chip" title="Журнала нет: этап определён по PR">этап по PR</span>` : ""
+    ""
   ].join("");
   return `<div class="page-title"><h1 title="${esc(t)}">${esc(t)}</h1><div class="chips">${chips}</div></div>`
     + `<div class="panel"><div class="stage"><span class="road">${state.data.checkpoints.map((c, i) => `<i class="${i < idx || (i === idx && s.closed) ? "done" : i === idx ? "now" : ""}"></i>`).join("")}</span></div>`
