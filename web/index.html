@@ -57,6 +57,7 @@ details[open] > summary .chev { transform: rotate(45deg); }
 .road i.now { background: var(--text); animation: pulse 2s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .5; } }
 .stage { display: grid; gap: 4px; }
+.road.big i { height: 5px; border-radius: 3px; }
 .stage small { color: var(--text-2); font-size: 12px; }
 .meta { display: flex; gap: 8px; align-items: center; justify-content: flex-end; color: var(--text-3); font-size: 12px; }
 .pr { font-family: var(--mono); }
@@ -65,21 +66,36 @@ details[open] > summary .chev { transform: rotate(45deg); }
 .muted { color: var(--text-3); }
 .empty { padding: 16px 12px; color: var(--text-3); }
 .ico { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.back { display: inline-flex; align-items: center; gap: 6px; margin: 16px 0 0; color: var(--text-3); font-size: 13px; }
+.back { display: inline-flex; align-items: center; gap: 6px; margin: 18px 0 0; color: var(--text-3); font-size: 13px; }
 .back:hover { color: var(--text); }
-.head { margin: 12px 0 0; }
-.head .idline { display: flex; gap: 8px; align-items: center; color: var(--text-3); font-size: 12px; }
-.head .idline .id { color: var(--text-2); }
-.head h1 { font-size: 18px; line-height: 1.35; margin: 4px 0 10px; font-weight: 600; letter-spacing: -.005em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chips a.chip:hover { background: var(--surface-3); color: var(--text); }
-.chip.st { background: var(--accent-bg); color: var(--accent); }
-.chip.ok { color: var(--ok); }
-.panel { border: 1px solid var(--border); border-radius: 4px; background: var(--surface); padding: 12px; margin-top: 12px; }
-.panel h3 { margin: 0 0 8px; font-size: 14px; }
+.head { margin: 14px 0 0; }
+.head .idline { font-family: var(--mono); font-size: 12px; color: var(--text-3); letter-spacing: .02em; }
+.head h1 { font-size: 17px; line-height: 1.45; margin: 4px 0 8px; font-weight: 600; max-width: 78ch; letter-spacing: -.003em; }
+.facts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; color: var(--text-3); font-size: 12.5px; }
+.facts > * { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.facts a:hover { color: var(--accent); }
+.facts .ico { width: 14px; height: 14px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.dot.pulse { animation: pulse 2s ease-in-out infinite; }
+.sec { margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--border); }
+.sec > h3 { margin: 0 0 10px; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-3); font-weight: 600; }
 .milestones { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin-top: 8px; }
-.milestones div { font-size: 12px; color: var(--text-3); }
-.milestones div.on { color: var(--text); }
+.milestones div { font-size: 12px; color: var(--text-3); line-height: 1.35; }
+.milestones div.on { color: var(--text-2); }
+.milestones div.now { color: var(--text); font-weight: 600; }
+.milestones small { display: block; font-weight: 400; color: var(--text-3); font-size: 11px; }
+.composer { border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
+.composer:focus-within { border-color: var(--accent); }
+.composer textarea { display: block; margin: 0; min-height: 76px; border: 0; background: transparent; border-radius: 6px 6px 0 0; outline: none; }
+.cbar { display: flex; align-items: center; gap: 2px; padding: 6px 8px; border-top: 1px solid var(--border); }
+.cbar .grow { flex: 1; }
+.ib { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 4px; color: var(--text-3); cursor: pointer; }
+.ib:hover { background: var(--surface-2); color: var(--text); }
+.ib .ico { width: 17px; height: 17px; }
+.send { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 4px; background: var(--accent); color: var(--on-accent); font-weight: 500; }
+.send:hover { filter: brightness(1.08); }
+.attached { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; font-size: 12px; color: var(--text-3); }
+.attached .ico { width: 14px; height: 14px; }
 .q { border: 1px solid var(--border); border-radius: 4px; padding: 12px; margin-top: 8px; background: var(--surface); }
 .q.open { border-color: var(--accent); }
 .q h3 { margin: 0 0 6px; font-size: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -233,28 +249,28 @@ function taskView(d, id) {
   const key = "reply:" + s.id;
   const imgs = state.images.get(key) || [];
   const rc = state.receipts.get(key) || {};
-  const chips = [
-    `<span class="chip st">${esc(stageLabel(s))}</span>`,
-    lk.linear && lk.linear.url ? `<a class="chip" href="${esc(lk.linear.url)}" target="_blank" rel="noopener">${icon("link")}Linear${lk.linear.state ? " · " + esc(lk.linear.state) : ""}</a>` : "",
-    pr.url ? `<a class="chip" href="${esc(pr.url)}" target="_blank" rel="noopener">${icon("pr")}#${esc(pr.number)}${pr.state ? " · " + esc(pr.state.toLowerCase()) : ""}</a>` : "",
-    s.last_ts ? `<span class="chip">${icon("clock")}${short(s.last_ts)}</span>` : "",
-    s.progress.inferred ? `<span class="chip" title="Журнала нет: этап определён по PR">этап по PR</span>` : ""
-  ].join("");
+  const facts = [
+    `<span title="${esc(stageLabel(s))}"><span class="dot ${s.closed ? "" : "pulse"}"></span>${esc(stageLabel(s))}</span>`,
+    lk.linear && lk.linear.url ? `<a href="${esc(lk.linear.url)}" target="_blank" rel="noopener">${icon("link")}Linear${lk.linear.state ? " · " + esc(lk.linear.state) : ""}</a>` : "",
+    pr.url ? `<a href="${esc(pr.url)}" target="_blank" rel="noopener">${icon("pr")}#${esc(pr.number)}${pr.state ? " · " + esc(pr.state.toLowerCase()) : ""}</a>` : "",
+    s.last_ts ? `<span title="последнее событие">${icon("clock")}${short(s.last_ts)}</span>` : ""
+  ].filter(Boolean).join("");
+  const idx = s.progress.index;
   return back
-    + `<div class="head"><div class="idline"><span class="id">${esc(s.id)}</span></div><h1 title="${esc(t)}">${esc(t)}</h1><div class="chips">${chips}</div></div>`
-    + `<div class="panel"><div class="stage">${road(s)}</div>`
-    + `<div class="milestones">${state.data.checkpoints.map((c, i) => `<div class="${ms[i] && ms[i].ts ? "on" : ""}">${esc(STAGES[c] || c)}<br>${ms[i] && ms[i].ts ? when(ms[i].ts) : ""}</div>`).join("")}</div></div>`
-    + (s.prompt ? promptPanel(s, s.prompt) : "")
-    + (s.questions || []).map(questionCard).join("")
-    + `<div class="panel"><h3>Сообщение</h3>`
+    + `<div class="head"><div class="idline">${esc(s.id)}</div><h1>${esc(t)}</h1><div class="facts">${facts}</div></div>`
+    + `<div class="sec"><div class="stage"><span class="road big">${state.data.checkpoints.map((c, i) => `<i class="${i < idx || (i === idx && s.closed) ? "done" : i === idx ? "now" : ""}"></i>`).join("")}</span></div>`
+    + `<div class="milestones">${state.data.checkpoints.map((c, i) => `<div class="${i === idx ? "now" : ms[i] && ms[i].ts ? "on" : ""}">${esc(STAGES[c] || c)}${ms[i] && ms[i].ts ? `<small>${when(ms[i].ts)}</small>` : ""}</div>`).join("")}</div></div>`
+    + (s.prompt ? `<div class="sec"><h3>Ждёт ответа в окне сессии</h3>${promptPanel(s, s.prompt)}</div>` : "")
+    + ((s.questions || []).length ? `<div class="sec"><h3>Вопросы к вам</h3>${s.questions.map(questionCard).join("")}</div>` : "")
+    + `<div class="sec"><h3>Сообщение</h3><div class="composer">`
     + `<textarea data-reply="${esc(s.id)}" placeholder="Оркестратору по ${esc(s.id)}: ответ, комментарий или вопрос по задаче">${esc(state.drafts.get(key) || "")}</textarea>`
-    + `<div class="actions"><button class="btn primary" data-send="${esc(s.id)}" data-session="${esc(orch.session_id || "")}" title="Ответ оркестратору">${icon("send")}Ответить</button>`
-    + `<button class="btn" data-note="${esc(s.id)}" data-session="${esc(orch.session_id || "")}" title="Комментарий к задаче: оркестратор учтёт, но отвечать не обязан">${icon("comment")}Комментарий</button>`
-    + `<button class="btn" data-askwin="${esc(s.id)}" title="Вопрос по задаче в новом окне Claude в её worktree (только чтение)">${icon("terminal")}Спросить в новом окне</button>`
-    + `<label class="btn icon" title="Прикрепить картинку">${icon("image")}<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden data-attach="${esc(s.id)}"></label>`
-    + imgs.map(p => `<span class="chip">${icon("image")}${esc(p.split("/").pop())}</span>`).join("")
-    + `<span class="receipt ${rc.err ? "err" : ""}">${esc(rc.text || "")}</span></div></div>`
-    + `<div class="panel"><h3>Журнал</h3><ul class="journal">${(s.events || []).slice().reverse().map(e =>
+    + `<div class="cbar"><label class="ib" title="Прикрепить картинку">${icon("image")}<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden data-attach="${esc(s.id)}"></label>`
+    + `<button class="ib" data-note="${esc(s.id)}" data-session="${esc(orch.session_id || "")}" title="Отправить как комментарий: оркестратор учтёт, отвечать не обязан">${icon("comment")}</button>`
+    + `<button class="ib" data-askwin="${esc(s.id)}" title="Задать как вопрос в новом окне Claude в worktree задачи (только чтение)">${icon("terminal")}</button>`
+    + imgs.map(p => `<span class="attached">${icon("image")}${esc(p.split("/").pop())}</span>`).join("")
+    + `<span class="receipt ${rc.err ? "err" : ""}" style="margin-left:8px">${esc(rc.text || "")}</span><span class="grow"></span>`
+    + `<button class="send" data-send="${esc(s.id)}" data-session="${esc(orch.session_id || "")}" title="Ответ оркестратору">${icon("send")}Ответить</button></div></div></div>`
+    + `<div class="sec"><h3>Журнал</h3><ul class="journal">${(s.events || []).slice().reverse().map(e =>
         `<li><span class="d">${when(e.ts)}</span><span class="d">${esc(e.checkpoint ? (STAGES[e.checkpoint] || e.checkpoint) + " " + e.direction : "заметка")}</span><span>${esc(e.text)}</span></li>`).join("") || `<li class="muted">Записей нет</li>`}</ul></div>`;
 }
 /* A question on the stream's own screen (outside tso ask): a held cross-session message or a menu of the session. */
