@@ -102,16 +102,22 @@ a.chip:hover { background: var(--surface-3); color: var(--text); }
 .dot.off { background: var(--text-3); }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
 .ico { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.msg { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; max-width: 92%; }
+.msg { display: flex; flex-direction: column; gap: 4px; margin-top: 14px; max-width: 100%; }
+.msg.you { max-width: 80%; }
 .msg.you { align-items: flex-end; margin-left: auto; }
-.msg .bubble { line-height: 1.5; }
+.msg .bubble { line-height: 1.6; overflow-wrap: anywhere; }
+.msg.bot .bubble { max-width: 80ch; }
+.msg .bubble h4 { margin: 16px 0 6px; font-size: 14px; font-weight: 600; }
+.msg .bubble h4:first-child { margin-top: 0; }
+.msg .bubble li { margin: 3px 0; }
+.msg .bubble ol { margin: 0 0 10px; padding-left: 22px; }
 .msg.you .bubble { background: var(--accent-bg); border-radius: 10px 10px 2px 10px; padding: 8px 12px; }
-.msg.bot .bubble p { margin: 0 0 8px; }
+.msg.bot .bubble p { margin: 0 0 10px; }
 .msg.bot .bubble > :last-child { margin-bottom: 0; }
 .msg .ts { font-size: 11px; color: var(--text-3); }
 .msg .bubble code { font-family: var(--mono); font-size: 12.5px; background: var(--surface-2); border-radius: 3px; padding: 0 4px; }
 .msg .bubble pre { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 8px; overflow: auto; font-size: 12.5px; }
-.msg .bubble ul { margin: 0 0 8px; padding-left: 20px; }
+.msg .bubble ul { margin: 0 0 10px; padding-left: 20px; }
 .adv-tools { margin: 2px 0 0; padding: 0; list-style: none; font-size: 12px; color: var(--text-3); display: flex; flex-wrap: wrap; gap: 4px 12px; }
 .adv-tools li { font-family: var(--mono); }
 .adv-tools .k { margin-right: 6px; color: var(--text-3); opacity: .7; font-family: var(--font); }
@@ -209,20 +215,26 @@ async function post(path, body) {
 }
 
 
-/* a small markdown reader for the advisor's answers */
+/* a small markdown reader for the advisor's answers: headings, bullet and numbered lists, paragraphs, code, bold, links */
 function md(text) {
-  const blocks = String(text || "").split(/```/);
-  return blocks.map((b, i) => {
-    if (i % 2) return `<pre>${esc(b.replace(/^\w*\n/, "").replace(/\n$/, ""))}</pre>`;
-    const inl = t => esc(t).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
-      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-      .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
-    return b.split(/\n{2,}/).map(par => {
-      const lines = par.split("\n").filter(l => l.trim());
-      if (!lines.length) return "";
-      if (lines.every(l => /^\s*[-*] /.test(l))) return `<ul>${lines.map(l => `<li>${inl(l.replace(/^\s*[-*] /, ""))}</li>`).join("")}</ul>`;
-      return `<p>${lines.map(inl).join("<br>")}</p>`;
-    }).join("");
+  const inl = t => esc(t).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  return String(text || "").split(/```/).map((chunk, i) => {
+    if (i % 2) return `<pre>${esc(chunk.replace(/^\w*\n/, "").replace(/\n$/, ""))}</pre>`;
+    const out = []; let par = [], list = null;
+    const flushPar = () => { if (par.length) out.push(`<p>${par.map(inl).join("<br>")}</p>`); par = []; };
+    const flushList = () => { if (list) out.push(`<${list.tag}>${list.items.map(x => `<li>${inl(x)}</li>`).join("")}</${list.tag}>`); list = null; };
+    for (const raw of chunk.split("\n")) {
+      const line = raw.replace(/\s+$/, "");
+      const li = line.match(/^\s*(?:([-*•])|(\d+[.)]))\s+(.*)$/), h = line.match(/^#{1,4}\s+(.*)$/);
+      if (!line.trim()) { flushPar(); flushList(); }
+      else if (li) { flushPar(); const tag = li[2] ? "ol" : "ul"; if (!list || list.tag !== tag) { flushList(); list = {tag, items: []}; } list.items.push(li[3]); }
+      else if (h) { flushPar(); flushList(); out.push(`<h4>${inl(h[1])}</h4>`); }
+      else { flushList(); par.push(line.trim()); }
+    }
+    flushPar(); flushList();
+    return out.join("");
   }).join("");
 }
 
