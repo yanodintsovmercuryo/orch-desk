@@ -86,14 +86,13 @@ a.chip:hover { background: var(--surface-3); color: var(--text); }
 .milestones div.on { color: var(--text-2); }
 .milestones div.now { color: var(--text); font-weight: 600; }
 .milestones small { display: block; font-weight: 400; color: var(--text-3); font-size: 11px; }
-.stand-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.panel.stand { padding: 8px 12px; }
+.stand-head { display: flex; align-items: center; gap: 12px; }
 .stand-head h3 { margin: 0; }
 .stand-head .state { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); font-size: 13px; }
-.pills { display: flex; flex-wrap: wrap; gap: 8px; }
-.pill { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface-2); color: var(--text); }
-.pill:hover { border-color: var(--accent); color: var(--accent); }
-.pill .ico { color: var(--text-3); }
-.pill:hover .ico { color: var(--accent); }
+.pills { display: inline-flex; gap: 4px; margin-left: 4px; padding-left: 12px; border-left: 1px solid var(--border); }
+.pill { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 4px; color: var(--text-3); }
+.pill:hover { background: var(--surface-2); color: var(--text); }
 .dot.ok { background: var(--ok); }
 .dot.off { background: var(--text-3); }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
@@ -290,15 +289,14 @@ function standPanel(s) {
   if (!w.available) return "";
   const info = w.info || {}, web = info.web || {}, st = info.status || {};
   const up = w.app_up, starting = up && up.running, app = st.application, b = state.busy.get(s.id) || "";
-  const pill = (name, ico, url) => url ? `<a class="pill" href="${esc(url)}" target="_blank" rel="noopener" title="${esc(url.replace(/^https?:\/\//, ""))}">${icon(ico)}${esc(name)}</a>` : "";
+  const pill = (name, ico, url) => url ? `<a class="pill" href="${esc(url)}" target="_blank" rel="noopener" title="${esc(name + " · " + url.replace(/^https?:\/\//, ""))}" aria-label="${esc(name)}">${icon(ico)}</a>` : "";
   const label = starting ? "запускается" : APP[app] || app || "неизвестно";
-  const body = w.loading ? `<div class="muted">Читаю task workspace:info…</div>` : w.error ? `<div class="receipt err">${esc(w.error)}</div>`
-    : `<div class="pills">${pill("Console", "layout", web.console)}${pill("Admin", "shield", web.admin)}${pill("API", "code", web.api)}${pill("RabbitScout", "layers", web.rabbitscout)}${pill("DbGate", "database", web.dbgate)}${pill("ObjectStore", "box", web.objectstore)}</div>`;
-  return `<div class="panel"><div class="stand-head"><h3>Стенд</h3><span class="state"><span class="dot ${app === "running" ? "ok" : starting ? "pulse" : "off"}"></span>${esc(label)}</span>`
-    + (w.checked ? `<span class="receipt">проверено ${esc(when(w.checked))}</span>` : "") + `<span class="grow"></span>`
+  const pills = w.loading || w.error ? "" : `<span class="pills">${pill("Console", "layout", web.console)}${pill("Admin", "shield", web.admin)}${pill("API", "code", web.api)}${pill("RabbitScout", "layers", web.rabbitscout)}${pill("DbGate", "database", web.dbgate)}${pill("ObjectStore", "box", web.objectstore)}</span>`;
+  const note = w.loading ? `<div class="muted" style="margin-top:8px">Читаю task workspace:info…</div>` : w.error ? `<div class="receipt err" style="margin-top:8px">${esc(w.error)}</div>` : "";
+  return `<div class="panel stand"><div class="stand-head"><h3>Стенд</h3><span class="state" title="${w.checked ? "проверено " + esc(when(w.checked)) : ""}"><span class="dot ${app === "running" ? "ok" : starting ? "pulse" : "off"}"></span>${esc(label)}</span>${pills}<span class="grow"></span>`
     + `<button class="ib" data-ws="up" data-stream="${esc(s.id)}" ${b || starting || app === "running" ? "disabled" : ""} title="Запустить task app:up">${icon("play")}</button>`
     + `<button class="ib" data-ws="refresh" data-stream="${esc(s.id)}" ${b ? "disabled" : ""} title="Обновить состояние стенда">${icon("refresh")}</button></div>`
-    + body + (up ? `<details data-key="${esc(s.id + ":appup")}" ${state.open.has(s.id + ":appup") ? "open" : ""}><summary class="receipt" style="cursor:pointer;margin-top:8px">Вывод app:up${up.running ? " (идёт)" : " · код " + esc(up.exit_code)}</summary><div class="pre">${esc(up.tail || "")}</div></details>` : "") + `</div>`;
+    + note + (up ? `<details data-key="${esc(s.id + ":appup")}" ${state.open.has(s.id + ":appup") ? "open" : ""}><summary class="receipt" style="cursor:pointer;margin-top:8px">Вывод app:up${up.running ? " (идёт)" : " · код " + esc(up.exit_code)}</summary><div class="pre">${esc(up.tail || "")}</div></details>` : "") + `</div>`;
 }
 
 function advisorMessages(id) {
