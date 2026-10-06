@@ -11,7 +11,7 @@ import time
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from desk import deliver, epics, links, terminal, tsoq, uploads, view
+from desk import askwin, deliver, epics, links, terminal, tsoq, uploads, view
 
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("DESK_PORT", "8800"))
@@ -162,6 +162,10 @@ class Handler(BaseHTTPRequestHandler):
                 deliver.log(REPLIES, {"stream": stream, "kind": "terminal", "ok": True,
                                       "text": f"[терминал] {stream}: «{result['picked']}»" + (f" · {text}" if text else "")})
                 return self._send(200, result)
+            if self.path == "/api/ask-window":
+                stream = body.get("stream", "")
+                repo = view.stream_repo(stream) if stream.replace("-", "").isalnum() else ""
+                return self._send(200, askwin.open_window(stream, repo, str(body.get("text") or "")))
             if self.path != "/api/reply":
                 return self._send(404, {"error": "not found"})
             session_id, stream, text = body.get("session_id", ""), body.get("stream", ""), body.get("text", "")

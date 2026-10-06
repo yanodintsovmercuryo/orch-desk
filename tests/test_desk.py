@@ -3,7 +3,7 @@ import os
 import tempfile
 import unittest
 
-from desk import deliver, state, terminal, transcript, tsoq, uploads, view
+from desk import askwin, deliver, state, terminal, transcript, tsoq, uploads, view
 
 CHECKPOINTS = state.load_checkpoints(pattern="/nonexistent/*")
 
@@ -141,6 +141,37 @@ class TerminalPromptTest(unittest.TestCase):
         self.assertEqual(p["options"][0]["label"], "Да, действуй по нему (Recommended)")
         self.assertEqual(p["options"][0]["hint"], "Считаю вставку вашим словом: push.")
         self.assertEqual(p["options"][2]["hint"], "")
+
+
+HELD = """────────────────────────────────────────────
+ Held message from another session
+ Another Claude session sent a message: from uds:/tmp/cc-socks/40860.sock [verified pid 40860] (peer claims name: MER-5523)
+ Message body (this is what will be delivered):
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+ │ gate-round MER-5523: round 1 of the branch gate
+ │ …[2 lines, 1139 chars total — full body will be delivered on approve]
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+ ❯ Deny — drop it and tell the sender it was declined
+   Deliver this message to Claude""".splitlines()
+
+
+class HeldPromptTest(unittest.TestCase):
+    def test_held_message_dialog_is_readable_with_two_choices(self):
+        p = terminal.parse_prompt(HELD)
+        self.assertEqual((p["kind"], p["sender"], p["truncated"], p["selected"]), ("held", "MER-5523", True, 0))
+        self.assertEqual(p["body"], ["gate-round MER-5523: round 1 of the branch gate"])
+        self.assertEqual([(o["key"], o["label"]) for o in p["options"]], [("1", "Не доставлять"), ("2", "Доставить сообщение")])
+
+
+class AskWindowTest(unittest.TestCase):
+    def test_command_reads_the_question_from_a_quoted_file_in_plan_mode(self):
+        self.assertEqual(askwin.command("/a b/q.txt"), "claude --permission-mode plan \"$(cat '/a b/q.txt')\"")
+
+    def test_empty_question_or_missing_worktree_is_refused(self):
+        with self.assertRaises(ValueError):
+            askwin.open_window("MER-1", "/nonexistent", "  ")
+        with self.assertRaises(ValueError):
+            askwin.open_window("MER-1", "/nonexistent", "вопрос")
 
 
 class ViewTest(unittest.TestCase):
